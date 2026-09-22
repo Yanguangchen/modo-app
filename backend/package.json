@@ -7,6 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "postinstall": "node scripts/patch-jwks-esm.mjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p .",
     "start": "node dist/server.js",
@@ -18,6 +19,7 @@
     "@google-cloud/kms": "^6.2.0",
     "@google/genai": "^2.24.0",
     "@hono/node-server": "^2.1.1",
+    "@vercel/oidc": "^3.8.9",
     "dotenv": "^18.0.3",
     "firebase-admin": "^14.4.0",
     "google-auth-library": "^11.1.0",

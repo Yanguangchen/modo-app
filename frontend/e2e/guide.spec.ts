@@ -6,9 +6,13 @@ test.describe('Guide AI & Preferences Workspace', () => {
   })
 
   test('displays preferences deck and allows customizing communication style', async ({ page }) => {
-    await expect(page.locator('h1')).toContainText('Guide')
+    await expect(page.locator('h1')).toContainText('Communication style')
 
-    // Preferences view should be active by default
+    // Switch to My preferences view
+    const prefsBtn = page.getByRole('button', { name: 'My preferences' })
+    await expect(prefsBtn).toBeVisible()
+    await prefsBtn.click()
+
     const deck = page.locator('.wg-deck')
     await expect(deck).toBeVisible()
 
@@ -38,15 +42,12 @@ test.describe('Guide AI & Preferences Workspace', () => {
   })
 
   test('interacts with Guide AI conversation in Ask tab', async ({ page }) => {
-    const viewControl = page.locator('[aria-label="Guide view"]')
-    await expect(viewControl).toBeVisible()
-
     // Switch to Ask tab
-    await viewControl.getByRole('radio', { name: 'Ask' }).click()
+    await page.getByRole('button', { name: 'Ask', exact: true }).click()
 
     const chatSection = page.locator('.guide-chat')
     await expect(chatSection).toBeVisible()
-    await expect(chatSection.locator('header strong')).toHaveText('Clarity Guide')
+    await expect(chatSection.locator('header strong')).toHaveText('Communication coach')
 
     // Initial starter message should be present
     const firstAssistantMsg = page.locator('.chat-row.is-assistant .chat-bubble').first()
@@ -61,7 +62,7 @@ test.describe('Guide AI & Preferences Workspace', () => {
     // User message bubble appears
     await expect(page.locator('.chat-row.is-user .chat-bubble').first()).toContainText(promptText || '')
 
-    // Assistant response arrives (within ~2 seconds)
+    // Assistant response arrives (within ~4 seconds)
     const assistantMessages = page.locator('.chat-row.is-assistant .chat-bubble')
     await expect(assistantMessages).toHaveCount(2, { timeout: 4000 })
 
@@ -75,9 +76,8 @@ test.describe('Guide AI & Preferences Workspace', () => {
   })
 
   test('searches and filters Knowledge Sources', async ({ page }) => {
-    const viewControl = page.locator('[aria-label="Guide view"]')
     // Switch to Sources tab
-    await viewControl.getByRole('radio', { name: 'Sources' }).click()
+    await page.getByRole('button', { name: 'Sources' }).click()
 
     const searchInput = page.locator('input[aria-label="Search sources"]')
     await expect(searchInput).toBeVisible()

@@ -10,15 +10,15 @@ export const TASK_STATES = ['planned', 'ready', 'in_progress', 'paused', 'comple
 export type TaskState = (typeof TASK_STATES)[number]
 const SEALED = ['title', 'why', 'doneWhen', 'resumeNote', 'source'] as const
 
-/** Allowed user-controlled moves (README §9.5). */
+/** User-controlled moves, including reverse moves for frontend Undo. */
 export const TRANSITIONS: Record<TaskState, TaskState[]> = {
-  planned: ['ready', 'in_progress', 'rescheduled', 'completed'],
-  ready: ['planned', 'in_progress', 'rescheduled', 'completed'],
+  planned: ['ready', 'in_progress', 'paused', 'returned', 'rescheduled', 'completed'],
+  ready: ['planned', 'in_progress', 'returned', 'rescheduled', 'completed'],
   returned: ['planned', 'ready', 'in_progress', 'rescheduled', 'completed'],
-  in_progress: ['paused', 'completed', 'rescheduled', 'planned'],
+  in_progress: ['paused', 'completed', 'rescheduled', 'planned', 'ready', 'returned'],
   paused: ['in_progress', 'completed', 'rescheduled', 'planned'],
-  rescheduled: ['returned', 'planned'],
-  completed: ['planned'],
+  rescheduled: ['returned', 'planned', 'ready', 'in_progress', 'paused', 'completed'],
+  completed: ['planned', 'ready', 'returned', 'in_progress', 'paused', 'rescheduled'],
 }
 
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)

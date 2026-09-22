@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { defaultPrefs, seedBlocks, seedGuide, seedMeetings, seedTasks } from './data'
 import type { CalendarBlock, GuideField, MeetingPlan, Prefs, Task } from './types'
 import { uid } from './time'
+import { useLocalStorageHealth } from './local-state'
 
 /* Local persistence keeps drafts safe across refreshes (spec §19.2.7).
    Everything here is private to this browser. */
@@ -30,7 +31,11 @@ function load(): Persisted {
     if (!raw) return seed()
     const parsed = JSON.parse(raw) as Partial<Persisted>
     const s = seed()
-    return { ...s, ...parsed, prefs: { ...s.prefs, ...parsed.prefs } }
+    const mergedPrefs = { ...s.prefs, ...parsed.prefs }
+    if (parsed.prefs && (parsed.prefs.font === 'system' || !parsed.prefs.font)) {
+      mergedPrefs.font = 'outfit'
+    }
+    return { ...s, ...parsed, prefs: mergedPrefs }
   } catch {
     return seed()
   }
@@ -65,6 +70,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [announcement, setAnnouncement] = useState('')
   const [captureOpen, setCaptureOpen] = useState(false)
   const [localSaved, setLocalSaved] = useState(true)
+  const draftsSaved = useLocalStorageHealth()
   const timers = useRef<number[]>([])
 
   useEffect(() => {
@@ -75,7 +81,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const notify = useCallback((message: string, action?: Toast['action']) => {
     const id = uid()
-    setToasts(t => [...t, { id, message, action }])
+    setToasts(t => [...(action ? t.filter(x => !x.action).slice(-2) : t.filter(x => x.action).concat(t.filter(x => !x.action).slice(-1))), { id, message, action }])
     // Re-set so screen readers re-announce identical messages.
     setAnnouncement('')
     requestAnimationFrame(() => setAnnouncement(message))
@@ -98,11 +104,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     toasts,
     notify,
     dismissToast: id => setToasts(t => t.filter(x => x.id !== id)),
-    localSaved,
+    localSaved: localSaved && draftsSaved,
     announcement,
     captureOpen,
     setCaptureOpen,
-  }), [state, toasts, notify, announcement, captureOpen, localSaved])
+  }), [state, toasts, notify, announcement, captureOpen, localSaved, draftsSaved])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

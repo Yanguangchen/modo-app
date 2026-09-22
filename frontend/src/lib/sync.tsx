@@ -87,6 +87,7 @@ export function useCloudSync() {
   const { user } = useAuth()
   const store = useStore()
   const [status, setStatus] = useState<SyncStatus>('off')
+  const [attempt, setAttempt] = useState(0)
   const synced = useRef<Synced | null>(null)
   const latest = useRef(pick(store))
   latest.current = pick(store)
@@ -129,7 +130,7 @@ export function useCloudSync() {
     })()
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid])
+  }, [user?.uid, attempt])
 
   // Changes: debounce, then send only what changed.
   const snapshot = JSON.stringify(latest.current)
@@ -152,17 +153,21 @@ export function useCloudSync() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot, status])
 
-  const retry = () => setStatus(s => (s === 'error' ? 'synced' : s))
-  return { status, retry }
+  const retry = () => {
+    if (!synced.current) setAttempt(n => n + 1)
+    else setStatus(s => (s === 'error' ? 'synced' : s))
+  }
+  const displayStatus = status === 'synced' && synced.current && !same(synced.current, latest.current) ? 'saving' : status
+  return { status: displayStatus, retry }
 }
 
 /** Small top-bar chip: where the workspace is saved right now. */
 export function SyncStatusChip() {
   const { status, retry } = useCloudSync()
-  if (status === 'off') return null
+  const { localSaved } = useStore()
   const label = {
-    connecting: 'Connecting…', synced: 'Saved to account', saving: 'Saving…', error: 'Not saved — retry',
-    not_invited: 'Not invited', off: '',
+    connecting: 'Connecting…', synced: localSaved ? 'Workspace saved to account' : 'Account synced · device save failed', saving: 'Syncing workspace…', error: 'Not synced — retry',
+    not_invited: 'Account not invited', off: localSaved ? 'Saved on this device' : 'Device save failed — keep this tab open',
   }[status]
   const act = status === 'error' ? retry : undefined
   return (

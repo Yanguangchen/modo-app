@@ -55,31 +55,31 @@ test.describe('Today Workspace', () => {
     await expect(toast).toContainText('Placed at')
   })
 
-  test('switches views via Floating Toolbar (Kanban, Timeline, Gantt)', async ({ page }) => {
-    const toolbar = page.locator('div[role="toolbar"]')
-    await expect(toolbar).toBeVisible()
-
-    // Open "Your day" panel from tab or toolbar
+  test('switches views in Your Day panel (Kanban, Timeline, Gantt)', async ({ page }) => {
+    // Open "Your day" panel
     const dayTab = page.locator('button.today-overview-tab:has-text("Your day")')
     await dayTab.click()
+
+    const dayViewControls = page.locator('.day-view-controls')
+    await expect(dayViewControls).toBeVisible()
 
     // Kanban is default
     await expect(page.locator('.kanban')).toBeVisible()
 
     // Switch to Zoomable timeline
-    const timelineBtn = toolbar.locator('button[role="radio"][data-tip="Zoomable timeline"]')
+    const timelineBtn = dayViewControls.locator('button[role="radio"][data-tip="Zoomable timeline"], button[role="radio"]:has-text("Timeline")').first()
     await timelineBtn.click()
     await expect(page.locator('.zt')).toBeVisible()
     await expect(page.locator('.kanban')).toHaveCount(0)
 
     // Switch to Gantt view
-    const ganttBtn = toolbar.locator('button[role="radio"][data-tip="Gantt by category"]')
+    const ganttBtn = dayViewControls.locator('button[role="radio"][data-tip="Gantt by category"], button[role="radio"]:has-text("Gantt")').first()
     await ganttBtn.click()
     await expect(page.locator('.gantt')).toBeVisible()
     await expect(page.locator('.zt')).toHaveCount(0)
 
     // Switch back to Kanban
-    const kanbanBtn = toolbar.locator('button[role="radio"][data-tip="Kanban board"]')
+    const kanbanBtn = dayViewControls.locator('button[role="radio"][data-tip="Kanban board"], button[role="radio"]:has-text("Board")').first()
     await kanbanBtn.click()
     await expect(page.locator('.kanban')).toBeVisible()
   })
@@ -109,11 +109,18 @@ test.describe('Today Workspace', () => {
     await expect(doingCol).toContainText(cardTitle || '')
   })
 
-  test('launches and exits Focus Mode from toolbar start button', async ({ page }) => {
-    const toolbar = page.locator('div[role="toolbar"]')
-    const startBtn = toolbar.locator('button:has-text("Start")')
-    await expect(startBtn).toBeVisible()
-    await startBtn.click()
+  test('launches and exits Focus Mode from NowCard actions', async ({ page }) => {
+    const nowActions = page.locator('.now-actions')
+    await expect(nowActions).toBeVisible()
+
+    // Start current task if not already in progress
+    const startOrPauseBtn = nowActions.locator('button:has-text("Start"), button:has-text("Pause"), button:has-text("Resume")').first()
+    await startOrPauseBtn.click()
+
+    // Click Focus button
+    const focusBtn = nowActions.locator('button:has-text("Focus")')
+    await expect(focusBtn).toBeVisible()
+    await focusBtn.click()
 
     const focusDialog = page.locator('dialog.focus-modal[open]')
     await expect(focusDialog).toBeVisible()

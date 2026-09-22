@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties, FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
-import { PrivateChip, Segmented } from '../components/ui'
+import { Modal, PrivateChip, Segmented } from '../components/ui'
 import { playAudio } from '../lib/audio'
 import { useStore } from '../lib/store'
 import { addMinutes, formatDuration, toMinutes } from '../lib/time'
@@ -20,11 +21,20 @@ const planFields: { key: keyof MeetingPlan; label: string; ask: string }[] = [
   { key: 'prep', label: 'My preparation', ask: '' },
 ]
 
+const prompts = [
+  'Could we clarify what decision needs to be made by the end of this meeting?',
+  'What is the one thing you need from me to keep this moving forward?',
+  'I’d like to take a minute to review what we’ve agreed on before we close.',
+  'Let me follow up with an email on that question by tomorrow morning.',
+]
+
 export default function Meetings() {
   const { meetings } = useStore()
   const [selected, setSelected] = useState(meetings[1]?.id ?? meetings[0]?.id)
   const [phase, setPhase] = useState<Phase>('prepare')
-  const meeting = meetings.find(m => m.id === selected)!
+  const meeting = meetings.find(m => m.id === selected) ?? meetings[0]
+  if (!meeting) return <div className="page"><div className="glass card empty"><p>No meetings today.</p></div></div>
+  const length = toMinutes(meeting.end) - toMinutes(meeting.start)
 
   return (
     <div className="page">
@@ -49,8 +59,16 @@ export default function Meetings() {
               const missing = planFields.filter(f => f.ask && !(m[f.key] as string)).length
               return (
                 <li key={m.id}>
-                  <button type="button" className="meeting-btn" aria-current={m.id === selected} onClick={() => { playAudio('tack'); setSelected(m.id) }}>
-                    <span className="row-between"><span className="time">{m.start}–{m.end}</span>{missing > 0 ? <span className="badge badge-warn">{missing} missing</span> : <span className="badge badge-ok">Clear</span>}</span>
+                  <button
+                    type="button"
+                    className="meeting-btn"
+                    aria-current={m.id === selected}
+                    onClick={() => { playAudio('tack'); setSelected(m.id) }}
+                  >
+                    <span className="row-between">
+                      <span className="time">{m.start}–{m.end}</span>
+                      {missing > 0 ? <span className="badge badge-warn">{missing} missing</span> : <span className="badge badge-ok">Clear</span>}
+                    </span>
                     <strong>{m.title}</strong>
                     <span className="faint">Organizer: {m.organizer}</span>
                   </button>
@@ -61,7 +79,7 @@ export default function Meetings() {
         </section>
 
         <div key={meeting.id + phase} className="stack fade">
-          {phase === 'prepare' && <Prepare meeting={meeting} />}
+          {phase === 'prepare' && <Prepare meeting={meeting} length={length} />}
           {phase === 'focus' && <Focus meeting={meeting} />}
           {phase === 'follow' && <FollowUp meeting={meeting} />}
         </div>
@@ -70,16 +88,19 @@ export default function Meetings() {
   )
 }
 
-function Prepare({ meeting }: { meeting: MeetingPlan }) {
+function Prepare({ meeting, length }: { meeting: MeetingPlan; length: number }) {
   const { updateMeeting, addTask, notify, prefs } = useStore()
   const missing = planFields.filter(f => f.ask && !(meeting[f.key] as string))
   const firstName = meeting.organizer.split(' ')[0]
   const [request, setRequest] = useState(() => buildRequest(firstName, meeting.title, missing.map(m => m.ask)))
-  const agendaTotal = meeting.agenda.reduce((n, a) => n + a.minutes, 0)
-  const length = toMinutes(meeting.end) - toMinutes(meeting.start)
 
   const schedulePrep = () => {
-    addTask({ title: `Prepare for ${meeting.title}`, minutes: 20, source: `Meeting: ${meeting.title}`, why: meeting.prep || 'Read materials and note your contribution.' })
+    addTask({
+      title: `Prepare for ${meeting.title}`,
+      minutes: 20,
+      source: `Meeting: ${meeting.title}`,
+      why: meeting.prep || 'Read materials and note your contribution.',
+    })
     notify(`Preparation added to your tray, with a ${prefs.bufferMinutes}-minute transition buffer when placed`)
   }
 
@@ -91,7 +112,9 @@ function Prepare({ meeting }: { meeting: MeetingPlan }) {
             <h2 id="plan-h" style={{ fontSize: 'var(--fs-lg)' }}>{meeting.title}</h2>
             <p className="faint">{meeting.start}–{meeting.end} · {formatDuration(length)} · Organizer: {meeting.organizer}</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={schedulePrep}><Icon name="calendar" size={18} />Add preparation time</button>
+          <button type="button" className="btn btn-primary" onClick={schedulePrep}>
+            <Icon name="calendar" size={18} />Add preparation time
+          </button>
         </div>
         <div className="plan-grid">
           {planFields.map(f => {
@@ -104,7 +127,10 @@ function Prepare({ meeting }: { meeting: MeetingPlan }) {
                   {isMissing && <span className="badge badge-warn">Not stated</span>}
                 </div>
                 <input
-                  id={`pf-${f.key}`} type="text" className="input-inline" value={value}
+                  id={`pf-${f.key}`}
+                  type="text"
+                  className="input-inline"
+                  value={value}
                   placeholder={isMissing ? 'Not in the invitation. Add it or ask.' : ''}
                   onChange={e => updateMeeting(meeting.id, { [f.key]: e.target.value })}
                 />
@@ -123,27 +149,21 @@ function Prepare({ meeting }: { meeting: MeetingPlan }) {
           <label htmlFor="req" className="visually-hidden">Message to organizer</label>
           <textarea id="req" rows={6} value={request} onChange={e => setRequest(e.target.value)} />
           <div className="row">
-            <button type="button" className="btn" onClick={() => navigator.clipboard?.writeText(request).then(() => notify('Message copied. It has not been sent.'), () => notify('Copy was blocked by the browser'))}>
-              <Icon name="copy" size={18} />Copy message
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() =>
+                navigator.clipboard?.writeText(request).then(
+                  () => notify('Message copied. It has not been sent.'),
+                  () => notify('Copy was blocked by the browser')
+                )
+              }
+            >
+              <Icon name="copy" size={16} />Copy message
             </button>
-            <span className="faint">You choose whether and where to send it.</span>
           </div>
         </section>
       )}
-
-      <section className="glass card rise" style={{ '--i': 2 } as CSSProperties} aria-labelledby="ag-h">
-        <div className="section-title">
-          <h3 id="ag-h" className="h-sm"><Icon name="list" />Agenda</h3>
-          {meeting.agenda.length > 0 && <span className={`badge ${agendaTotal > length ? 'badge-warn' : ''}`}>{agendaTotal} of {length} min planned</span>}
-        </div>
-        {meeting.agenda.length === 0 ? (
-          <p className="muted">No agenda was shared. You can add it to your message above.</p>
-        ) : (
-          <ol className="stack-sm" style={{ paddingLeft: '1.2em' }}>
-            {meeting.agenda.map(a => <li key={a.id}><strong>{a.title}</strong> <span className="faint">· {a.minutes} min</span></li>)}
-          </ol>
-        )}
-      </section>
     </>
   )
 }
@@ -183,13 +203,6 @@ function Focus({ meeting }: { meeting: MeetingPlan }) {
     notify(`${label} added. Fill it in under After.`)
   }
 
-  const prompts = [
-    'Could you say that again, please?',
-    'Could I have a moment to think about that?',
-    'Could you send that in writing after the meeting?',
-    'Just to check I understood: are you asking me to…',
-  ]
-
   return (
     <>
       <section className="glass focus-stage rise" aria-labelledby="focus-h">
@@ -212,6 +225,11 @@ function Focus({ meeting }: { meeting: MeetingPlan }) {
           </button>
           <button type="button" className="btn" disabled={idx === agenda.length - 1} onClick={() => { playAudio('tack'); setIdx(i => i + 1) }}>Next item<Icon name="arrowRight" size={16} /></button>
         </div>
+        <div className="row" style={{ justifyContent: 'center', gap: 'var(--s2)' }} role="group" aria-label="Record">
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => record('decisions')}><Icon name="check" size={15} />Decision</button>
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => record('actions')}><Icon name="task" size={15} />Action</button>
+          <button type="button" className="btn btn-quiet btn-sm" onClick={() => record('questions')}><Icon name="question" size={15} />Question</button>
+        </div>
         <p className="faint">The timer is only a guide. Ends at {addMinutes(meeting.start, agenda.slice(0, idx + 1).reduce((n, a) => n + a.minutes, 0))}.</p>
       </section>
 
@@ -221,11 +239,6 @@ function Focus({ meeting }: { meeting: MeetingPlan }) {
           {meeting.prep && <p className="faint">Prep: {meeting.prep}</p>}
           <label htmlFor="pn" className="visually-hidden">Private notes</label>
           <textarea id="pn" rows={6} value={meeting.privateNotes} onChange={e => updateMeeting(meeting.id, { privateNotes: e.target.value })} placeholder="Anything you want to remember…" />
-          <div className="row">
-            <button type="button" className="btn btn-sm" onClick={() => record('decisions')}>+ Decision</button>
-            <button type="button" className="btn btn-sm" onClick={() => record('actions')}>+ Action</button>
-            <button type="button" className="btn btn-sm" onClick={() => record('questions')}>+ Open question</button>
-          </div>
         </section>
         <section className="glass card stack-sm rise" style={{ '--i': 2 } as CSSProperties}>
           <h3 className="h-sm"><Icon name="sparkle" />Quick prompts</h3>
@@ -253,7 +266,9 @@ function Focus({ meeting }: { meeting: MeetingPlan }) {
 }
 
 function FollowUp({ meeting }: { meeting: MeetingPlan }) {
-  const { updateMeeting, addTask, notify } = useStore()
+  const { updateMeeting, addTask, notify, tasks } = useStore()
+  const navigate = useNavigate()
+  const [taskReview, setTaskReview] = useState<string[] | null>(null)
   const cols: { key: 'decisions' | 'actions' | 'questions'; title: string; badge: string; icon: IconName }[] = [
     { key: 'decisions', title: 'Decisions', badge: 'badge-ok', icon: 'check' },
     { key: 'actions', title: 'Actions', badge: 'badge-accent', icon: 'task' },
@@ -262,10 +277,24 @@ function FollowUp({ meeting }: { meeting: MeetingPlan }) {
   const [reviewed, setReviewed] = useState(false)
 
   const addActions = () => {
-    const actions = meeting.actions.filter(a => a.trim() && !a.trim().endsWith(':'))
-    actions.forEach(a => addTask({ title: a.replace(/^Action \([^)]*\):\s*/, ''), minutes: 30, source: `Meeting: ${meeting.title}` }))
+    const actions = [...new Set(meeting.actions.filter(a => a.trim() && !a.trim().endsWith(':')).map(a => a.replace(/^Action \([^)]*\):\s*/, '').trim()))]
+      .filter(title => !tasks.some(task => task.title === title && task.source === `Meeting: ${meeting.title}`))
+    if (!actions.length) {
+      notify('No new actions to add. Write an action first, or check Today.')
+      return
+    }
+    setTaskReview(actions)
+  }
+
+  const confirmActions = () => {
+    const actions = taskReview ?? []
+    actions.forEach(title => addTask({ title, minutes: 30, source: `Meeting: ${meeting.title}` }))
+    setTaskReview(null)
     playAudio('complete')
-    notify(actions.length ? `Added ${actions.length} action${actions.length > 1 ? 's' : ''} to your tray` : 'Write the action first, then add it')
+    notify(`Added ${actions.length} action${actions.length > 1 ? 's' : ''} to Unscheduled`, {
+      label: 'View Today',
+      run: () => navigate('/'),
+    })
   }
 
   const summary = [
@@ -275,19 +304,69 @@ function FollowUp({ meeting }: { meeting: MeetingPlan }) {
 
   return (
     <>
+      <Modal open={taskReview !== null} onClose={() => setTaskReview(null)} title="Review actions for Today">
+        <p className="muted">Choose the actions that belong to you. These will be added to Unscheduled with a 30-minute estimate; nothing is added to your external calendar.</p>
+        <ul className="stack-sm" style={{ listStyle: 'none', padding: 0 }}>
+          {taskReview?.map((title, index) => (
+            <li key={index} className="row-between">
+              <span>{title}</span>
+              <button
+                type="button"
+                className="btn btn-quiet btn-sm"
+                onClick={() => setTaskReview(items => items?.filter((_, i) => i !== index) ?? null)}
+                aria-label={`Exclude ${title}`}
+              >
+                Exclude
+              </button>
+            </li>
+          ))}
+        </ul>
+        <div className="modal-foot">
+          <button type="button" className="btn btn-quiet" onClick={() => setTaskReview(null)}>Cancel</button>
+          <button type="button" className="btn btn-primary" disabled={!taskReview?.length} onClick={confirmActions}>
+            Add {taskReview?.length ?? 0} to Today
+          </button>
+        </div>
+      </Modal>
+
       <div className="grid grid-3">
         {cols.map((c, ci) => (
           <section key={c.key} className="glass output-col rise" style={{ '--i': ci } as CSSProperties}>
-            <div className="row-between"><h3 className="h-sm"><Icon name={c.icon} />{c.title}</h3><span className={`badge ${c.badge}`}>{meeting[c.key].length}</span></div>
+            <div className="row-between">
+              <h3 className="h-sm"><Icon name={c.icon} />{c.title}</h3>
+              <span className={`badge ${c.badge}`}>{meeting[c.key].length}</span>
+            </div>
             <ul>
               {meeting[c.key].map((x, i) => (
                 <li key={i} className="glass-inset row" style={{ flexWrap: 'nowrap' }}>
-                  <input type="text" className="input-inline" aria-label={`${c.title} ${i + 1}`} value={x} onChange={e => updateMeeting(meeting.id, { [c.key]: meeting[c.key].map((y, j) => (j === i ? e.target.value : y)) })} />
-                  <button type="button" className="btn btn-quiet icon-btn btn-sm" aria-label={`Remove ${c.title.toLowerCase()} ${i + 1}`} onClick={() => updateMeeting(meeting.id, { [c.key]: meeting[c.key].filter((_, j) => j !== i) })}><Icon name="trash" size={15} /></button>
+                  <input
+                    type="text"
+                    className="input-inline"
+                    aria-label={`${c.title} ${i + 1}`}
+                    value={x}
+                    onChange={e => updateMeeting(meeting.id, { [c.key]: meeting[c.key].map((y, j) => (j === i ? e.target.value : y)) })}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-quiet icon-btn btn-sm"
+                    aria-label={`Remove ${c.title.toLowerCase()} ${i + 1}`}
+                    onClick={() => updateMeeting(meeting.id, { [c.key]: meeting[c.key].filter((_, j) => j !== i) })}
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
                 </li>
               ))}
             </ul>
-            <button type="button" className="btn btn-quiet btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => updateMeeting(meeting.id, { [c.key]: [...meeting[c.key], ''] })}><Icon name="plus" size={15} />Add</button>
+            <div className="row" style={{ gap: 'var(--s2)' }}>
+              <button
+                type="button"
+                className="btn btn-quiet btn-sm"
+                style={{ alignSelf: 'flex-start' }}
+                onClick={() => updateMeeting(meeting.id, { [c.key]: [...meeting[c.key], ''] })}
+              >
+                <Icon name="plus" size={15} />Add
+              </button>
+            </div>
           </section>
         ))}
       </div>
@@ -299,17 +378,33 @@ function FollowUp({ meeting }: { meeting: MeetingPlan }) {
         </div>
         <pre className="glass-inset source-text" style={{ margin: 0, fontFamily: 'inherit' }}>{summary}</pre>
         <label className="row" style={{ fontWeight: 500 }}>
-          <input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} style={{ width: 20, height: 20 }} />
+          <input
+            type="checkbox"
+            checked={reviewed}
+            onChange={e => setReviewed(e.target.checked)}
+            style={{ width: 20, height: 20 }}
+          />
           I have reviewed this summary and it is accurate
         </label>
         <div className="row">
-          <button type="button" className="btn btn-primary" disabled={!reviewed} onClick={() => navigator.clipboard?.writeText(summary).then(() => notify('Summary copied to share'), () => notify('Copy was blocked by the browser'))}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!reviewed}
+            onClick={() =>
+              navigator.clipboard?.writeText(summary).then(
+                () => notify('Summary copied to share'),
+                () => notify('Copy was blocked by the browser')
+              )
+            }
+          >
             <Icon name="copy" size={18} />Copy summary to share
           </button>
-          <button type="button" className="btn" onClick={addActions}><Icon name="inbox" size={18} />Add actions to tray</button>
+          <button type="button" className="btn" onClick={addActions}>
+            <Icon name="inbox" size={18} />Add actions to tray
+          </button>
         </div>
       </section>
     </>
   )
 }
-

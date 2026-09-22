@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { KeyManagementServiceClient } from '@google-cloud/kms'
 import { config } from './config.js'
 import { paths } from './firebase.js'
+import { cloudAuthClient } from './cloud-auth.js'
 
 /* Envelope encryption for private bodies (REQUIREMENTS §11).
    Each user has a random 256-bit data key, wrapped by Cloud KMS and stored on the
@@ -9,7 +10,7 @@ import { paths } from './firebase.js'
    Without KMS_KEY_NAME (local only; production refuses to boot) the key is stored unwrapped. */
 
 let kms: KeyManagementServiceClient | null = null
-const kmsClient = () => (kms ??= new KeyManagementServiceClient())
+const kmsClient = () => (kms ??= new KeyManagementServiceClient({ authClient: cloudAuthClient() }))
 
 type Wrapped = { wrapped: string; kms: string }
 const cache = new Map<string, { key: Buffer; exp: number }>()

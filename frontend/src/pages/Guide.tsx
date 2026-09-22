@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, KeyboardEvent } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { ConversationHistory } from '../components/ConversationHistory'
+import type { ConversationSummary } from '../components/ConversationHistory'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
-import { Modal, Segmented } from '../components/ui'
+import { Modal } from '../components/ui'
 import { articles } from '../lib/data'
 import { isVisibleInPreview } from '../lib/guide'
 import type { PreviewRole } from '../lib/guide'
@@ -10,6 +13,8 @@ import { ApiError, api, apiPost } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { guideBody } from '../lib/sync'
 import { useStore } from '../lib/store'
+import { useLocalState } from '../lib/local-state'
+import { uid } from '../lib/time'
 import type { Article, Audience, GuideField } from '../lib/types'
 
 type GuideView = 'chat' | 'profile' | 'sources'
@@ -35,7 +40,7 @@ const starterMessage: ChatMessage = {
 }
 
 const quickPrompts = [
-  'Turn my Working Guide into a short team introduction',
+  'Turn my communication style into a short team introduction',
   'Help me ask for a specific deadline without sounding abrupt',
   'What does our guidance say about giving useful feedback?',
 ]
@@ -54,11 +59,11 @@ function buildPreviewResponse(prompt: string, guide: GuideField[], includeGuide:
       ? articles[1]
       : articles[0]
 
-  if (normalized.includes('working guide') || normalized.includes('team introduction')) {
+  if (normalized.includes('communication style') || normalized.includes('working guide') || normalized.includes('team introduction')) {
     const preferences = guide.filter(field => field.value && field.audience !== 'private').slice(0, 3)
     const summary = includeGuide && preferences.length > 0
       ? preferences.map(field => `${field.label.toLowerCase()}: ${field.value}`).join('\n')
-      : 'Enable Working Guide context so I can tailor this draft to your saved preferences.'
+      : 'Enable communication style context so I can tailor this draft to your saved preferences.'
     return {
       content: `Here is a concise version you can adapt:\n\n“Here are a few things that help me do my best work:\n${summary}\n\nPlease ask if you want to check what works for a particular situation.”`,
       citations: [] as ChatCitation[],
@@ -72,50 +77,55 @@ function buildPreviewResponse(prompt: string, guide: GuideField[], includeGuide:
 }
 
 export default function Guide() {
-  const [view, setView] = useState<GuideView>('profile')
+  const [view, setView] = useLocalState<GuideView>('clarity.guide.view', 'chat')
+  const location = useLocation()
+  useEffect(() => { if (location.state?.taskId) setView('chat') }, [location.state, setView])
 
   return (
     <div className="page guide-ai-page">
       <div className="page-head">
-        <h1 className="row" style={{ gap: 'var(--s3)' }}><Icon name="guide" size={28} />Guide</h1>
-        <Segmented<GuideView>
-          label="Guide view"
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'profile', label: 'Preferences' },
-            { value: 'chat', label: 'Ask' },
-            { value: 'sources', label: 'Sources' },
-          ]}
-        />
+        <h1 className="row" style={{ gap: 'var(--s3)' }}><Icon name="guide" size={28} />Communication style</h1>
+        <div className="row" role="group" aria-label="Communication style view">
+          {(['chat', 'profile', 'sources'] as const).map(value => <button type="button" key={value} className={`btn btn-sm ${view === value ? '' : 'btn-quiet'}`} aria-pressed={view === value} onClick={() => setView(value)}>{value === 'chat' ? 'Ask' : value === 'profile' ? 'My preferences' : 'Sources'}</button>)}
+        </div>
       </div>
 
-      {view === 'chat' ? <GuideChat /> : view === 'profile' ? <WorkingGuide /> : <KnowledgeSources />}
+      <div hidden={view !== 'chat'}><GuideChat /></div>
+      {view === 'profile' ? <WorkingGuide /> : view === 'sources' ? <KnowledgeSources /> : null}
     </div>
   )
 }
 
 function GuideChat() {
-  const { guide } = useStore()
-  const [messages, setMessages] = useState<ChatMessage[]>([starterMessage])
-  const [draft, setDraft] = useState('')
-  const [sending, setSending] = useState(false)
-  const [includeGuide, setIncludeGuide] = useState(true)
-  const [includeKnowledge, setIncludeKnowledge] = useState(true)
+  const { guide, tasks } = useStore()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const contextTask = tasks.find(task => task.id === location.state?.taskId)
+  const [messages, setMessages] = useLocalState<ChatMessage[]>('clarity.guide.messages', [starterMessage])
+  const [draft, setDraft] = useLocalState('clarity.guide.draft', '')
+  const [history, setHistory] = useLocalState<(ConversationSummary & { messages: ChatMessage[]; draft: string })[]>('clarity.guide.history', [])
+  const [sending, setSending] = useLocalState('clarity.guide.sending', false, false)
+  const [includeGuide] = useLocalState('clarity.guide.include-preferences', true)
+  const [includeKnowledge] = useLocalState('clarity.guide.include-sources', true)
+  const archive = () => ({ id: uid(), title: (messages.find(m => m.role === 'user')?.content || draft || 'Conversation').slice(0, 90), savedAt: new Date().toISOString(), messages, draft })
+  const newConversation = () => {
+    if (messages.length > 1 || draft.trim()) setHistory(items => [archive(), ...items])
+    setMessages([starterMessage]); setDraft('')
+  }
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (endRef.current?.getClientRects().length) endRef.current.scrollIntoView({ behavior: document.documentElement.dataset.motion === 'reduced' ? 'auto' : 'smooth', block: 'nearest' })
   }, [messages, sending])
 
-  const sendMessage = async (value: string) => {
+  const sendMessage = async (value: string, retry = false) => {
     const prompt = value.trim()
     if (!prompt || sending) return
 
     const userMessage: ChatMessage = { id: `user-${Date.now()}`, role: 'user', content: prompt }
-    const requestHistory = [...messages, userMessage]
+    const requestHistory = retry ? messages.filter(message => !message.isError) : [...messages, userMessage]
     setMessages(requestHistory)
-    setDraft('')
+    if (!retry) setDraft('')
     setSending(true)
 
     try {
@@ -146,7 +156,7 @@ function GuideChat() {
       setMessages(current => [...current, {
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: err instanceof ApiError ? err.message : 'I couldn’t reach the Guide AI service. Try again.',
+        content: err instanceof ApiError ? err.message : 'I couldn’t reach the communication style service. Try again.',
         isError: true,
       }])
     } finally {
@@ -160,7 +170,7 @@ function GuideChat() {
   }
 
   const handleComposerKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault()
       void sendMessage(draft)
     }
@@ -168,20 +178,26 @@ function GuideChat() {
 
   return (
     <div className="guide-chat-layout">
-      <section className="guide-chat glass glass-strong" aria-label="Guide AI conversation">
+      <section className="guide-chat glass glass-strong" aria-label="Communication style conversation">
         <header className="guide-chat-header">
           <div className="ai-avatar"><Icon name="sparkle" size={20} /></div>
           <div>
-            <strong>Clarity Guide</strong>
+            <strong>Communication coach</strong>
           </div>
           {demoMode ? <div className="preview-badge" style={{ padding: '0 var(--s2)', margin: 0 }}><span /> Local preview mode</div> : null}
+          <ConversationHistory items={history} disabled={sending} onSelect={id => {
+            const selected = history.find(item => item.id === id)
+            if (!selected) return
+            setHistory(items => [...(messages.length > 1 || draft.trim() ? [archive()] : []), ...items.filter(item => item.id !== id)])
+            setMessages(selected.messages); setDraft(selected.draft)
+          }} />
           <button
             type="button"
             className="btn btn-quiet btn-sm chat-clear"
-            onClick={() => setMessages([starterMessage])}
-            disabled={messages.length === 1}
+            onClick={newConversation}
+            disabled={sending || (messages.length === 1 && !draft.trim())}
           >
-            <Icon name="trash" size={15} /> Clear
+            <Icon name="plus" size={15} /> New conversation
           </button>
         </header>
 
@@ -211,49 +227,43 @@ function GuideChat() {
             </div>
           ) : null}
           {sending ? (
-            <div className="chat-row is-assistant" aria-label="Guide AI is responding">
+            <div className="chat-row is-assistant" aria-label="Communication style coach is responding">
               <span className="chat-avatar"><Icon name="sparkle" size={15} /></span>
               <div className="chat-bubble chat-typing"><span /><span /><span /></div>
             </div>
           ) : null}
+          {!sending && (messages.at(-1)?.role === 'user' || messages.at(-1)?.isError) && <button type="button" className="btn btn-sm" onClick={() => {
+            const lastPrompt = [...messages].reverse().find(message => message.role === 'user')
+            if (lastPrompt) void sendMessage(lastPrompt.content, true)
+          }}>Retry reply</button>}
           <div ref={endRef} />
         </div>
 
         <form className="guide-composer" onSubmit={submit}>
+          {contextTask && <div className="task-context-preview stack-sm">
+            <strong>Task context · not sent yet</strong>
+            <p>{contextTask.title}{contextTask.why ? ` — ${contextTask.why}` : ''}{contextTask.doneWhen ? ` · Done when: ${contextTask.doneWhen}` : ''}</p>
+            <div className="row"><button type="button" className="btn btn-sm" onClick={() => {
+              setDraft(current => `${current}${current ? '\n\n' : ''}Help me with this task: ${contextTask.title}${contextTask.why ? `\nContext: ${contextTask.why}` : ''}${contextTask.doneWhen ? `\nDone when: ${contextTask.doneWhen}` : ''}`)
+              navigate('/guide', { replace: true, state: null })
+            }}>Include in draft</button><button type="button" className="btn btn-quiet btn-sm" onClick={() => navigate('/guide', { replace: true, state: null })}>Dismiss</button></div>
+          </div>}
           <textarea
             rows={2}
             value={draft}
             onChange={event => setDraft(event.target.value)}
             onKeyDown={handleComposerKey}
-            placeholder="Ask about communication, meetings, feedback, or your Working Guide…"
-            aria-label="Message Guide AI"
+            placeholder="Ask about communication, meetings, feedback, or your communication style…"
+            aria-label="Message communication style coach"
           />
           <button type="submit" className="composer-send" disabled={!draft.trim() || sending} aria-label="Send message">
             <Icon name="arrowUp" size={19} />
           </button>
           <span className="composer-hint">Enter to send · Shift + Enter for a new line</span>
+          <span className="composer-hint">{demoMode ? 'Local preview · example replies, no AI request is sent.' : 'Your message, recent conversation, and enabled context are sent to Gemini through your workspace service.'} Conversation history stays on this device.</span>
         </form>
       </section>
 
-      {/* Hidden AI context controls */}
-      <aside className="guide-context stack-sm" aria-label="AI context controls" style={{ display: 'none' }}>
-        <section className="glass card-tight stack-sm" style={{ display: 'none' }} aria-hidden="true">
-          <div className="context-title">
-            <span className="context-icon"><Icon name="guide" size={17} /></span>
-            <div><strong>Your context</strong><span>Choose what informs answers</span></div>
-          </div>
-          <label className="switch context-switch">
-            <span><strong>Working Guide</strong><small>{guide.filter(field => field.value).length} saved preferences</small></span>
-            <input type="checkbox" checked={includeGuide} onChange={event => setIncludeGuide(event.target.checked)} />
-            <span className="switch-track" />
-          </label>
-          <label className="switch context-switch">
-            <span><strong>Trusted knowledge</strong><small>{articles.length} published sources</small></span>
-            <input type="checkbox" checked={includeKnowledge} onChange={event => setIncludeKnowledge(event.target.checked)} />
-            <span className="switch-track" />
-          </label>
-        </section>
-      </aside>
     </div>
   )
 }
@@ -504,7 +514,7 @@ function ShareControls() {
         await Promise.all(guide.map((f, i) => api('PUT', `/v1/guide/fields/${f.id}`, guideBody(f, i))))
         const r = await api<{ version: number }>('POST', '/v1/guide/share', { confirm: true })
         setStatus({ shared: true, version: r.version })
-        notify(`Guide shared (version ${r.version})`)
+        notify(`Communication style shared (version ${r.version})`)
       } else {
         await api('POST', '/v1/guide/revoke', { confirm: true })
         setStatus({ shared: false, version: null })
@@ -523,7 +533,7 @@ function ShareControls() {
       {status?.shared && <span className="badge badge-ok"><Icon name="users" size={13} />Shared · v{status.version}</span>}
       <button type="button" className="btn btn-primary btn-sm" onClick={() => setConfirming('share')}><Icon name="users" size={16} />{status?.shared ? 'Update share' : 'Share'}</button>
       {status?.shared && <button type="button" className="btn btn-quiet btn-sm" onClick={() => setConfirming('revoke')}><Icon name="lock" size={16} />Revoke</button>}
-      <Modal open={!!confirming} onClose={() => setConfirming(null)} title={confirming === 'share' ? 'Share your guide?' : 'Revoke sharing?'}>
+      <Modal open={!!confirming} onClose={() => setConfirming(null)} title={confirming === 'share' ? 'Share your communication style?' : 'Revoke sharing?'}>
         <div className="stack">
           {confirming === 'share' ? (
             <ul className="wg-confirm">
@@ -533,7 +543,7 @@ function ShareControls() {
               <li className="faint"><Icon name="lock" size={16} />Private answers are never shared</li>
             </ul>
           ) : (
-            <p className="muted small">People will stop seeing your guide. Your answers stay here.</p>
+            <p className="muted small">People will stop seeing your communication style. Your answers stay here.</p>
           )}
           <div className="modal-foot">
             <button type="button" className="btn btn-quiet" onClick={() => setConfirming(null)}>Cancel</button>

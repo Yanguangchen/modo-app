@@ -3,8 +3,10 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 
-// Local runs read the repo-root env files. Cloud Run injects real env vars and has neither file.
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+// Local runs read the repo-root env files. Cloud Run and Vercel inject real env vars.
+const here = dirname(fileURLToPath(import.meta.url))
+const rootCandidates = [resolve(here, '..', '..'), resolve(here, '..'), process.cwd()]
+const root = rootCandidates.find(dir => existsSync(resolve(dir, 'backend', 'prompts', 'transformations.md'))) ?? resolve(here, '..', '..')
 for (const name of ['.env.local', '.env']) {
   const path = resolve(root, name)
   if (existsSync(path)) dotenv.config({ path, quiet: true })
@@ -26,6 +28,12 @@ export const config = {
   corsOrigins: str('CORS_ORIGINS', 'http://localhost:5173').split(',').map(s => s.trim()).filter(Boolean),
   projectId: str('GCP_PROJECT_ID'),
   region: str('GCP_REGION'),
+  federation: {
+    projectNumber: str('GCP_PROJECT_NUMBER'),
+    serviceAccountEmail: str('GCP_SERVICE_ACCOUNT_EMAIL'),
+    poolId: str('GCP_WORKLOAD_IDENTITY_POOL_ID'),
+    providerId: str('GCP_WORKLOAD_IDENTITY_POOL_PROVIDER_ID'),
+  },
   firebaseProjectId: str('FIREBASE_PROJECT_ID') || str('GCP_PROJECT_ID'),
   geminiApiKey: str('GEMINI_API_KEY'),
   geminiModel: str('GEMINI_MODEL', 'gemini-3-flash-preview'),
@@ -65,6 +73,9 @@ export const config = {
 /** Refuse to boot in unsafe or incomplete configurations (REQUIREMENTS §13). */
 export function assertBootable() {
   const problems: string[] = []
+  if (process.env.VERCEL_ENV === 'production' && config.appEnv !== 'production') {
+    problems.push('APP_ENV must be production on Vercel production deployments')
+  }
   if (config.locks.messageImport) problems.push('ENABLE_MESSAGE_IMPORT must be false for the pilot')
   if (config.locks.transcription) problems.push('ENABLE_TRANSCRIPTION must be false for the pilot')
   if (!config.region) problems.push('GCP_REGION is required')

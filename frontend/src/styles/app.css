@@ -14,6 +14,10 @@ body {
   transition: background-color var(--dur-3) var(--ease), color var(--dur-3) var(--ease);
 }
 
+button, input, textarea, select {
+  font-family: var(--font);
+}
+
 h1, h2, h3, h4 { margin: 0; line-height: 1.25; letter-spacing: -0.01em; }
 h1 { font-size: var(--fs-2xl); font-weight: 700; }
 h2 { font-size: var(--fs-xl); font-weight: 650; }
@@ -301,9 +305,20 @@ a { color: var(--accent); }
   padding: var(--s3) var(--s3) var(--s3) var(--s5);
   border-radius: var(--r-pill);
 }
-.topbar-title { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; }
+.topbar-title { display: flex; align-items: baseline; gap: var(--s3); flex-wrap: wrap; min-width: 0; }
+.topbar-when { display: inline-flex; align-items: baseline; gap: var(--s3); min-width: 0; }
 .topbar-title .date { color: var(--text-muted); font-size: var(--fs-sm); }
+.topbar-when .clock {
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .topbar-actions { display: flex; align-items: center; gap: var(--s2); }
+.topbar.is-compressed { padding-block: var(--s2); }
+.topbar-toggle svg { transition: transform var(--dur-2) var(--ease); }
+.topbar:not(.is-compressed) .topbar-toggle svg { transform: rotate(180deg); }
+:root[data-motion="reduced"] .topbar-toggle svg { transition: none; }
 
 .page { display: flex; flex-direction: column; gap: var(--s5); }
 .page-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: var(--s4); padding: 0 var(--s2); }
@@ -334,7 +349,8 @@ a { color: var(--accent); }
   .app, .app.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); padding: var(--s4); padding-bottom: 96px; gap: var(--s4); }
   .sidebar { display: none; }
   .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
-  .topbar { border-radius: var(--r-lg); padding: var(--s3) var(--s3) var(--s3) var(--s4); }
+  .topbar { border-radius: var(--r-lg); padding: var(--s3) var(--s3) var(--s3) var(--s4); flex-wrap: wrap; gap: var(--s2); }
+  .topbar-actions { flex-wrap: wrap; }
   .bottom-nav {
     display: flex; justify-content: space-around;
     position: fixed; left: var(--s3); right: var(--s3); bottom: var(--s3); z-index: 20;
@@ -931,6 +947,8 @@ dialog.modal[open]::backdrop { background: rgba(10, 12, 30, 0.28); -webkit-backd
   animation: toast-in var(--dur-3) var(--ease) both;
 }
 .toast.leaving { animation: toast-out var(--dur-2) var(--ease) both; }
+.toast > span { overflow-wrap: anywhere; }
+.toast { max-width: min(580px, calc(100vw - 32px)); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(.98); } }
 :root[data-motion="reduced"] .toast, :root[data-motion="reduced"] .toast.leaving { animation: none; }
@@ -1543,6 +1561,40 @@ dialog.focus-modal::backdrop { background: color-mix(in srgb, var(--bg) 70%, tra
 }
 /* Running: the pulse slows to a calmer heartbeat */
 .now-card.is-running { animation-duration: 4s; }
+
+/* Contextual controls and progressive disclosure. */
+.now-card { flex-wrap: wrap; }
+.now-actions { display: flex; flex-wrap: wrap; gap: var(--s2); flex-basis: 100%; padding-top: var(--s3); }
+.day-view-controls { display: flex; flex-wrap: wrap; gap: var(--s2); margin-bottom: var(--s4); }
+.ux-details > summary { cursor: pointer; color: var(--text-muted); font-size: var(--fs-sm); padding-block: var(--s2); }
+.ux-details[open] > summary { margin-bottom: var(--s2); }
+.ux-details label input[type="checkbox"] { width: 18px; height: 18px; flex: none; }
+.guide-chat-header { flex-wrap: wrap; }
+.guide-context-disclosure, .task-context-preview { grid-column: 1 / -1; }
+.guide-composer .composer-send { position: static; align-self: center; }
+.guide-composer textarea { padding-right: var(--s3); }
+.task-context-preview { padding: var(--s3); border: 1px solid var(--glass-border); border-radius: var(--r-md); }
+.task-context-preview p { overflow-wrap: anywhere; }
+.guide-chat-layout { height: auto; min-height: min(650px, 85dvh); }
+.guide-chat { grid-template-rows: auto minmax(200px, 1fr) auto; }
+.guide-chat-messages { max-height: 55dvh; }
+.conversation-history { list-style: none; padding: 0; display: grid; gap: var(--s2); max-height: 55dvh; overflow: auto; }
+.conversation-history button { width: 100%; align-items: flex-start; flex-direction: column; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.conversation-history small { color: var(--text-muted); font-weight: normal; }
+[hidden] { display: none !important; }
+@media (max-width: 600px) {
+  .topbar { flex-wrap: wrap; gap: var(--s2); }
+  .topbar.is-compressed { flex-wrap: nowrap; }
+  .topbar-title { flex-basis: 100%; }
+  .topbar.is-compressed .topbar-title { flex-basis: auto; }
+  .topbar-actions { width: 100%; justify-content: space-between; min-width: 0; }
+  .topbar.is-compressed .topbar-actions { width: auto; justify-content: flex-end; }
+  .topbar-actions .btn { padding-inline: var(--s3); }
+  .topbar.is-compressed .btn-primary { padding-inline: var(--s3); }
+  .now-actions .btn { padding-inline: var(--s3); }
+  .guide-chat-header { gap: var(--s2); }
+  .toast { flex-wrap: wrap; }
+}
 .now-card.is-running .now-icon { animation-duration: 4s; }
 
 :root[data-motion="reduced"] .now-card::after,
@@ -1819,3 +1871,71 @@ dialog.focus-modal::backdrop { background: color-mix(in srgb, var(--bg) 70%, tra
 .wg-confirm { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .wg-confirm li { display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s3); border-radius: var(--r-sm); background: var(--glass-inset); }
 .wg-confirm li strong { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* Open sidebar: links sit at the top. Collapsed rail: icons stay spread down the height. */
+.sidebar .nav {
+  flex: 1;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: var(--s4) 0;
+}
+.sidebar-collapsed .nav {
+  justify-content: space-evenly;
+  gap: 0;
+}
+.sidebar-collapsed .nav-link {
+  justify-content: center;
+  padding-inline: 0;
+}
+.sidebar .nav-link { min-height: 52px; }
+.sidebar .nav-icon { width: 22px; height: 22px; }
+.sidebar .nav-icon svg { width: 22px; height: 22px; }
+.sidebar .nav-pill { top: 0; height: 52px; transition: transform var(--dur-3) var(--ease), height var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease); }
+.sidebar-foot { margin-top: 0; }
+.sidebar-settings { margin-top: auto; padding-inline: 4px; flex: none; }
+.sidebar-settings-link {
+  display: grid; place-items: center;
+  width: 44px; height: 44px;
+  color: var(--text-muted); border-radius: var(--r-sm);
+  text-decoration: none;
+  transition: color var(--dur-2) var(--ease), background-color var(--dur-2) var(--ease);
+}
+.sidebar-settings-link:hover { color: var(--text); background: var(--glass-inset); }
+.sidebar-settings-link[aria-current="page"] { color: var(--accent); background: var(--accent-soft); }
+.sidebar-settings-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ── Meetings: chips on top, one meeting in focus, sections on request ── */
+.mtg-strip { display: flex; gap: var(--s2); overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; }
+.mtg-strip::-webkit-scrollbar { display: none; }
+.mtg-chip {
+  appearance: none; font: inherit; color: inherit; cursor: pointer; flex: none;
+  display: inline-flex; align-items: center; gap: var(--s2);
+  padding: 8px 10px 8px 14px; border-radius: var(--r-pill);
+  max-width: 280px;
+}
+.mtg-chip:hover { transform: translateY(-1px); }
+.mtg-chip.is-on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), var(--glass-shadow); }
+.mtg-chip .time { font-size: var(--fs-xs); color: var(--text-muted); }
+.mtg-chip-title { font-weight: 650; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mtg-dot {
+  flex: none; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px;
+  display: inline-grid; place-items: center; font-size: 11px; font-weight: 700;
+}
+.mtg-dot.is-warn { background: var(--warn-soft); color: var(--warn); }
+.mtg-dot.is-ok { background: var(--ok-soft); color: var(--ok); }
+:root[data-motion="reduced"] .mtg-chip:hover { transform: none; }
+
+.mtg-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s4); padding: var(--s4) var(--s5); }
+.mtg-title { font-size: var(--fs-xl); }
+.mtg-meta { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: 4px; font-size: var(--fs-sm); color: var(--text-muted); }
+.mtg-meta span { display: inline-flex; align-items: center; gap: 6px; }
+
+.agenda-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; counter-reset: ag; }
+.agenda-list li { display: flex; justify-content: space-between; gap: var(--s3); padding: var(--s2) var(--s3); border-radius: var(--r-sm); background: var(--glass-inset); counter-increment: ag; }
+.agenda-list li span:first-child::before { content: counter(ag) '. '; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+/* The one chip that needs attention gets a soft ring */
+.aspect-chip.is-highlight:not(.is-open) { border-color: color-mix(in srgb, var(--tone) 55%, transparent); animation: aspect-attn 2.4s var(--ease) 3; }
+@keyframes aspect-attn { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--tone) 18%, transparent), var(--glass-shadow); } }
+:root[data-motion="reduced"] .aspect-chip.is-highlight { animation: none; }
+.focus-stage .btn-quiet { color: var(--text-muted); }

@@ -2,6 +2,9 @@ import { test, expect } from './fixtures'
 
 test.describe('Navigation & Left Toolbar', () => {
   test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem('clarity.v1')
+    })
     await page.goto('/')
   })
 
@@ -35,22 +38,46 @@ test.describe('Navigation & Left Toolbar', () => {
     await expect(page).toHaveTitle(/Meetings · Clarity Workspace/)
     await expect(nav.getByRole('link', { name: 'Meetings' })).toHaveAttribute('aria-current', 'page')
 
-    // Navigate to Guide AI
-    await nav.getByRole('link', { name: 'Guide AI' }).click()
+    // Navigate to Communication style
+    await nav.getByRole('link', { name: 'Communication style' }).click()
     await expect(page).toHaveURL(/\/guide/)
-    await expect(page).toHaveTitle(/Guide AI · Clarity Workspace/)
-    await expect(nav.getByRole('link', { name: 'Guide AI' })).toHaveAttribute('aria-current', 'page')
+    await expect(page).toHaveTitle(/Communication style · Clarity Workspace/)
+    await expect(nav.getByRole('link', { name: 'Communication style' })).toHaveAttribute('aria-current', 'page')
 
     // Navigate to Settings
-    await nav.getByRole('link', { name: 'Settings' }).click()
+    const settings = page.locator('.sidebar-settings').getByRole('link', { name: 'Settings' })
+    await settings.click()
     await expect(page).toHaveURL(/\/settings/)
     await expect(page).toHaveTitle(/Settings · Clarity Workspace/)
-    await expect(nav.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
+    await expect(settings).toHaveAttribute('aria-current', 'page')
 
     // Navigate back to Today
     await nav.getByRole('link', { name: 'Today' }).click()
     await expect(page).toHaveURL(/\/$/)
     await expect(nav.getByRole('link', { name: 'Today' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  test('Settings is an icon-only footer link in both sidebar sizes', async ({ page }) => {
+    const sidebar = page.locator('#primary-sidebar')
+    const settings = sidebar.getByRole('link', { name: 'Settings', exact: true })
+    await expect(sidebar.locator('.nav').getByRole('link', { name: 'Settings' })).toHaveCount(0)
+    await expect(settings).toHaveText('')
+    await expect(settings.locator('svg')).toBeVisible()
+    const checkBottom = async () => {
+      const rail = await sidebar.boundingBox()
+      const gear = await settings.boundingBox()
+      expect(rail!.y + rail!.height - (gear!.y + gear!.height)).toBeLessThan(40)
+    }
+    await checkBottom()
+    await settings.click()
+    await expect(settings).toHaveAttribute('aria-current', 'page')
+    await expect(sidebar.locator('.nav-pill')).toHaveCSS('opacity', '0')
+    await sidebar.getByRole('button', { name: 'Collapse sidebar', exact: true }).click()
+    await expect(settings).toBeVisible()
+    await checkBottom()
+    await settings.focus()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/settings$/)
   })
 
   test('animates left toolbar open and close via toggle button', async ({ page }) => {
@@ -125,17 +152,18 @@ test.describe('Navigation & Left Toolbar', () => {
     const muteBtn = page.locator('header.topbar button[aria-label*="audio feedback"]')
     await expect(muteBtn).toBeVisible()
 
-    // Check initial state (unmuted by default)
-    await expect(muteBtn).toHaveAttribute('aria-label', 'Mute audio feedback')
+    const initialLabel = await muteBtn.getAttribute('aria-label')
+    const isInitiallyMuted = initialLabel === 'Unmute audio feedback'
 
-    // Click to mute
+    // Click to toggle
     await muteBtn.click()
-    await expect(muteBtn).toHaveAttribute('aria-label', 'Unmute audio feedback')
-    await expect(page.locator('.toast').last()).toContainText('Audio feedback: muted')
+    const nextExpected = isInitiallyMuted ? 'Mute audio feedback' : 'Unmute audio feedback'
+    await expect(muteBtn).toHaveAttribute('aria-label', nextExpected)
+    await expect(page.locator('.toast').last()).toContainText(isInitiallyMuted ? 'Audio feedback: unmuted' : 'Audio feedback: muted')
 
-    // Click to unmute
+    // Click to toggle back
     await muteBtn.click()
-    await expect(muteBtn).toHaveAttribute('aria-label', 'Mute audio feedback')
-    await expect(page.locator('.toast').last()).toContainText('Audio feedback: unmuted')
+    await expect(muteBtn).toHaveAttribute('aria-label', initialLabel!)
+    await expect(page.locator('.toast').last()).toContainText(isInitiallyMuted ? 'Audio feedback: muted' : 'Audio feedback: unmuted')
   })
 })

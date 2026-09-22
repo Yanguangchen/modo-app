@@ -41,6 +41,10 @@ test.describe('Quick Capture', () => {
 
     const taskTitle = 'Test automated quick capture task'
     await textarea.fill(taskTitle)
+    const durationSummary = modal.locator('summary:has-text("Add a duration")')
+    if (await durationSummary.isVisible()) {
+      await durationSummary.click()
+    }
     await durationInput.fill('25')
 
     await expect(saveBtn).toBeEnabled()
@@ -53,9 +57,11 @@ test.describe('Quick Capture', () => {
     const toast = page.locator('.toast').last()
     await expect(toast).toContainText('Saved to your unscheduled tray')
 
-    // Open unscheduled tray tab on Today page to verify task presence
+    // Open unscheduled tray tab on Today page to verify task presence if not already open
     const unscheduledTab = page.locator('button.today-overview-tab:has-text("Unscheduled")')
-    await unscheduledTab.click()
+    if (await unscheduledTab.getAttribute('aria-expanded') !== 'true') {
+      await unscheduledTab.click()
+    }
 
     const trayBody = page.locator('#tray-body')
     await expect(trayBody).toBeVisible()

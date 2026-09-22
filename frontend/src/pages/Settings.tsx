@@ -120,10 +120,18 @@ export default function Settings() {
           <h1>Settings & Preferences</h1>
           <p>Customize your sensory preferences, interface density, quiet hours, and data privacy.</p>
         </div>
-        <PrivateChip text="All preferences stored locally" />
+        <PrivateChip text="Preferences sync when signed in" />
       </div>
 
       <div className="stack">
+        <section className="glass card row-between" aria-label="Quiet appearance">
+          <div><h2 className="h-sm">Quiet appearance</h2><p className="muted small">No sounds, reduced motion, solid surfaces, and comfortable spacing. You can adjust each setting below.</p></div>
+          <button type="button" className="btn" onClick={() => {
+            const previous = { soundEnabled: prefs.soundEnabled, motion: prefs.motion, solidSurfaces: prefs.solidSurfaces, density: prefs.density }
+            setPrefs({ soundEnabled: false, motion: 'reduced', solidSurfaces: true, density: 'comfortable' })
+            notify('Quiet appearance applied', { label: 'Undo', run: () => setPrefs(previous) })
+          }}>Use quiet appearance</button>
+        </section>
         {/* Card 1: Sensory & Display */}
         <SettingCard
           id="sensory"
@@ -190,16 +198,17 @@ export default function Settings() {
 
           <div className="field">
             <label>Typography</label>
-            <Segmented<'system' | 'atkinson'>
+            <Segmented<'outfit' | 'system' | 'atkinson'>
               label="Font"
               value={prefs.font}
               onChange={font => setPrefs({ font })}
               options={[
+                { value: 'outfit', label: 'Outfit (Default)' },
                 { value: 'system', label: 'System sans-serif' },
                 { value: 'atkinson', label: 'Atkinson Hyperlegible' },
               ]}
             />
-            <span className="hint">Atkinson Hyperlegible focuses on letterform distinction to increase legibility.</span>
+            <span className="hint">Outfit provides a clean, modern aesthetic. Atkinson Hyperlegible focuses on letterform distinction to increase legibility.</span>
           </div>
 
           <div className="field" style={{ maxWidth: 300 }}>
@@ -329,7 +338,7 @@ export default function Settings() {
           onToggle={() => toggleCard('privacy')}
         >
           <p className="small muted">
-            Your notes, task titles, and Working Guide drafts are held privately in your browser storage.
+            Your notes, task titles, and communication style drafts are held privately in your browser storage.
             You can export your complete data anytime or reset your local store.
           </p>
 

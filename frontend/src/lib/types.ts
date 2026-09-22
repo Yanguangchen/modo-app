@@ -8,7 +8,7 @@ export interface Prefs {
   solidSurfaces: boolean
   density: 'comfortable' | 'compact'
   textScale: number
-  font: 'system' | 'atkinson'
+  font: 'outfit' | 'system' | 'atkinson'
   todayView: TodayView
   bufferMinutes: number
   quietStart: string

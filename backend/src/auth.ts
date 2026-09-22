@@ -1,17 +1,11 @@
-import { getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import type { DecodedIdToken } from 'firebase-admin/auth'
 import type { MiddlewareHandler } from 'hono'
-import { config } from './config.js'
 import { ApiError } from './errors.js'
+import { adminApp } from './firebase.js'
 
-let initialized = false
 function auth() {
-  if (!initialized) {
-    if (!getApps().length) initializeApp({ projectId: config.firebaseProjectId })
-    initialized = true
-  }
-  return getAuth()
+  return getAuth(adminApp())
 }
 
 export type Caller = { uid: string; email?: string; emailVerified?: boolean; tenantId?: string; roles: string[] }

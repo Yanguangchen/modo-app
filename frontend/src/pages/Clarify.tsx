@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
+import { Aspects } from '../components/Aspects'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
-import { Disclose, PrivateChip, Segmented } from '../components/ui'
+import { PrivateChip, Segmented } from '../components/ui'
 import { playAudio } from '../lib/audio'
 import { analyse, draftMessage, example, modes } from '../lib/clarify'
 import type { Analysis, Mode, Sourced, Step } from '../lib/clarify'
@@ -11,14 +12,14 @@ import type { Strategy } from '../lib/schedule'
 import { ApiError, aiDemoMode, api, apiPost } from '../lib/api'
 import { useAuth } from '../lib/auth'
 import { useStore } from '../lib/store'
+import { useLocalState } from '../lib/local-state'
+import { ConversationHistory } from '../components/ConversationHistory'
+import type { ConversationSummary } from '../components/ConversationHistory'
 import { formatDuration, fromMinutes, uid } from '../lib/time'
 
 const DEMO = aiDemoMode(import.meta.env.VITE_CLARIFY_DEMO_MODE)
 const THREAD_KEY = 'clarity.clarify.thread'
 const DRAFT_KEY = 'clarity.draft.clarify'
-const load = <T,>(key: string, fallback: T): T => {
-  try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback } catch { return fallback }
-}
 
 const modeIcon: Record<Mode, IconName> = {
   explicit: 'eye', breakdown: 'list', say: 'message', cards: 'grid', mindmap: 'mindmap', conversation: 'users',
@@ -40,19 +41,20 @@ type Msg = UserMsg | AiMsg
 
 /* Clarify as a conversation. Every reply is still structured: the user picks an
    output style, the original text is kept in their own bubble, and each reply is
-   editable with its own undo. Nothing leaves the device. */
+   editable with its own undo. Live mode sends text to the workspace AI service. */
 export default function Clarify() {
   const { notify } = useStore()
   const { user, signIn } = useAuth()
-  const [thread, setThread] = useState<Msg[]>(() => load<Msg[]>(THREAD_KEY, []).map(m => (m.role === 'assistant' && m.status === 'working' ? { ...m, status: 'error' as const, error: { code: 'interrupted', message: 'This reply was interrupted. Try again.' } } : m)))
-  const [draft, setDraft] = useState(() => { try { return localStorage.getItem(DRAFT_KEY) ?? '' } catch { return '' } })
-  const [mode, setMode] = useState<Mode>('explicit')
-  const [opts, setOpts] = useState<SayOpts>({ audience: '', tone: 'neutral', keep: '', avoid: '' })
+  const [thread, setThread] = useLocalState<Msg[]>(THREAD_KEY, [], true, saved => saved.map(m => (m.role === 'assistant' && m.status === 'working' ? { ...m, status: 'error' as const, error: { code: 'interrupted', message: 'This reply was interrupted. Try again.' } } : m)))
+  const [draft, setDraft] = useLocalState(DRAFT_KEY, () => { try { return localStorage.getItem(DRAFT_KEY) ?? '' } catch { return '' } })
+  const [mode, setMode] = useLocalState<Mode>('clarity.clarify.mode', 'explicit')
+  const [opts, setOpts] = useLocalState<SayOpts>('clarity.clarify.options', { audience: '', tone: 'neutral', keep: '', avoid: '' })
+  const [history, setHistory] = useLocalState<(ConversationSummary & { thread: Msg[]; draft: string })[]>('clarity.clarify.history', [])
+  const working = thread.some(m => m.role === 'assistant' && m.status === 'working')
+  const archive = () => ({ id: uid(), title: (thread.find(m => m.role === 'user')?.text || draft || 'Conversation').slice(0, 90), savedAt: new Date().toISOString(), thread, draft })
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  useEffect(() => { try { localStorage.setItem(THREAD_KEY, JSON.stringify(thread)) } catch { /* ignore */ } }, [thread])
-  useEffect(() => { try { localStorage.setItem(DRAFT_KEY, draft) } catch { /* ignore */ } }, [draft])
   // Bring the newest prompt to the top so its reply unfolds beneath it.
   useEffect(() => {
     const rows = endRef.current?.parentElement?.querySelectorAll('.chat-row.is-user')
@@ -138,7 +140,10 @@ export default function Clarify() {
     notify('Restored the previous version')
   }
 
-  const clear = () => { setThread([]); notify('Started a new conversation') }
+  const clear = () => {
+    if (thread.length || draft.trim()) setHistory(items => [archive(), ...items])
+    setThread([]); setDraft(''); notify('Previous conversation kept in History')
+  }
 
   // Highlight unclear sentences in a user's original once its reply is in.
   const marksFor = (idx: number) => {
@@ -151,11 +156,15 @@ export default function Clarify() {
       <div className="page-head">
         <div className="row" style={{ gap: 'var(--s3)' }}>
           <h1>Clarify</h1>
-          <PrivateChip text="Private" />
+          <PrivateChip text={DEMO ? 'Local preview' : 'Workspace AI'} />
         </div>
-        {thread.length > 0 && (
-          <button type="button" className="btn btn-quiet btn-sm" onClick={clear}><Icon name="plus" size={16} />New conversation</button>
-        )}
+        <div className="row"><ConversationHistory items={history} disabled={working} onSelect={id => {
+          const selected = history.find(item => item.id === id)
+          if (!selected) return
+          setHistory(items => [...(thread.length || draft.trim() ? [archive()] : []), ...items.filter(item => item.id !== id)])
+          setThread(selected.thread); setDraft(selected.draft)
+        }} />
+        {(thread.length > 0 || draft.trim()) && <button type="button" className="btn btn-quiet btn-sm" disabled={working} onClick={clear}><Icon name="plus" size={16} />New conversation</button>}</div>
       </div>
 
       <div className="chat-thread" role="log" aria-label="Clarify conversation" aria-live="polite">
@@ -163,7 +172,7 @@ export default function Clarify() {
           <div className="chat-empty rise">
             <span className="chat-avatar is-lg" aria-hidden><Icon name="sparkle" size={26} /></span>
             <h2>What would you like to make clearer?</h2>
-            <p className="muted">Paste a message or type a thought, pick a style, and send.</p>
+            <p className="muted">Paste a message or type a thought. Start with a clear summary, then choose another format if useful.</p>
             <div className="chat-suggest">
               {(['explicit', 'breakdown', 'mindmap'] as Mode[]).map((m, i) => (
                 <button key={m} type="button" className="chat-suggestion glass rise" style={{ '--i': i + 1 } as CSSProperties}
@@ -243,6 +252,7 @@ export default function Clarify() {
       </div>
 
       <form className="chat-composer glass glass-strong" onSubmit={e => { e.preventDefault(); send() }}>
+        <details className="ux-details"><summary>Output: {modes.find(m => m.id === mode)?.title} · Change format</summary>
         <div className="chat-styles" role="radiogroup" aria-label="Output style">
           {modes.map(m => (
             <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} className={`chat-style${mode === m.id ? ' is-on' : ''}`} onClick={() => setMode(m.id)} data-tip={m.blurb}>
@@ -257,6 +267,7 @@ export default function Clarify() {
             <input type="text" aria-label="Phrases to avoid, comma separated" placeholder="Avoid (e.g. just, sorry)" value={opts.avoid} onChange={e => setOpts(o => ({ ...o, avoid: e.target.value }))} />
           </div>
         )}
+        </details>
         <div className="chat-input">
           <label htmlFor="chat-text" className="visually-hidden">Message</label>
           <textarea
@@ -270,6 +281,7 @@ export default function Clarify() {
             <Icon name="send" size={20} />
           </button>
         </div>
+        <p className="composer-hint">{DEMO ? 'Local preview · processed on this device.' : 'Sending shares this text with Gemini through your workspace service.'} Conversation history stays on this device.</p>
       </form>
     </div>
   )
@@ -334,47 +346,6 @@ function EditableList({ items, onChange, label, sourceLabel = true, copy }: { it
         </li>
       ))}
     </ul>
-  )
-}
-
-/* Replies open as a row of aspect chips. Nothing is shown until the person asks
-   for it, so one reply never floods the screen. */
-type Aspect = { key: string; label: string; icon: IconName; count?: number; tone: string; node: ReactNode }
-
-function Aspects({ items, label }: { items: Aspect[]; label: string }) {
-  const [open, setOpen] = useState<Set<string>>(() => new Set())
-  const toggle = (k: string) => {
-    playAudio('tack')
-    setOpen(o => { const n = new Set(o); if (n.has(k)) n.delete(k); else n.add(k); return n })
-  }
-  const all = open.size === items.length
-  const uidRef = useRef(uid())
-  return (
-    <div className="aspects">
-      <div className="aspect-bar" role="group" aria-label={label}>
-        {items.map((a, i) => (
-          <button
-            key={a.key} type="button"
-            className={`aspect-chip rise${open.has(a.key) ? ' is-open' : ''}`}
-            style={{ '--i': i, '--tone': `var(--card-${a.tone})` } as CSSProperties}
-            aria-expanded={open.has(a.key)} aria-controls={`${uidRef.current}-${a.key}`}
-            onClick={() => toggle(a.key)}
-          >
-            <span className="aspect-icon" aria-hidden><Icon name={a.icon} size={15} /></span>
-            {a.label}
-            {a.count !== undefined && <span className="aspect-count">{a.count}</span>}
-          </button>
-        ))}
-        <button type="button" className="aspect-all" onClick={() => setOpen(all ? new Set() : new Set(items.map(a => a.key)))}>
-          {all ? 'Hide all' : 'Show all'}
-        </button>
-      </div>
-      {items.map(a => (
-        <Disclose key={a.key} open={open.has(a.key)} id={`${uidRef.current}-${a.key}`}>
-          <div className="aspect-body">{a.node}</div>
-        </Disclose>
-      ))}
-    </div>
   )
 }
 

@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:ux": "playwright test --config playwright.ux.config.ts",
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {

@@ -4,7 +4,19 @@ export class ApiError extends Error {
   constructor(public code: string, message: string, public status = 0) { super(message) }
 }
 
-const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const fromEnv = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const pointsAtLoopback = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(fromEnv)
+
+/** Local dev keeps localhost:3001. A production build always calls this site's own /v1 API. */
+function apiBase() {
+  if (import.meta.env.PROD && pointsAtLoopback) return ''
+  if (typeof window === 'undefined') return fromEnv
+  const pageIsLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  if (!pageIsLocal && pointsAtLoopback) return ''
+  return fromEnv
+}
+
+const base = apiBase()
 
 /** POST JSON to the Cloud Run API with the caller's Firebase ID token. */
 export const apiPost = <T>(path: string, body: unknown, timeoutMs = 20000) => api<T>('POST', path, body, timeoutMs)

@@ -41,6 +41,8 @@ export function createApp({ generate, authenticate }: Deps) {
       if (config.corsOrigins.includes(origin)) return origin
       // Vite moves to the next free port when 5173 is taken. Allow that locally.
       if (config.appEnv !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin
+      // The production site and the API share one Vercel host, including preview URLs.
+      if (/^https:\/\/[\w.-]+\.vercel\.app$/.test(origin)) return origin
       return undefined
     },
     allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
@@ -100,7 +102,7 @@ export function createApp({ generate, authenticate }: Deps) {
       dayStart: z.number().int().min(0).max(1440).optional(),
       dayEnd: z.number().int().min(0).max(1440).optional(),
     }))
-    return c.json({ options: proposals(b.busy, b.steps, b.bufferMinutes, b.from, b.dayStart, b.dayEnd) })
+    return c.json({ options: proposals(b.busy as [number, number][], b.steps, b.bufferMinutes, b.from, b.dayStart, b.dayEnd) })
   })
 
   /** One read for the client on sign-in: preferences, tasks, meetings, guide fields. */

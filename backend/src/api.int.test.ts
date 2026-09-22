@@ -86,7 +86,9 @@ describe('tasks', () => {
     expect(JSON.stringify(raw)).not.toContain('Secret plan')
 
     expect((await json(await call('owner', 'POST', '/tasks/t1/transition', { to: 'in_progress', startedAt: Date.now() }))).status).toBe(200)
-    expect((await json(await call('owner', 'POST', '/tasks/t1/transition', { to: 'returned' }))).body.code).toBe('invalid_transition')
+    // Reverse moves are now supported for Undo, including after a sync.
+    expect((await json(await call('owner', 'POST', '/tasks/t1/transition', { to: 'completed' }))).status).toBe(200)
+    expect((await json(await call('owner', 'POST', '/tasks/t1/transition', { to: 'in_progress' }))).status).toBe(200)
     expect((await json(await call('owner', 'PUT', '/tasks/t1/resume-note', { note: 'Open the doc' }))).status).toBe(200)
 
     const list = await json(await call('owner', 'GET', '/tasks'))

@@ -1,19 +1,31 @@
 import { getApps, initializeApp } from 'firebase-admin/app'
 import type { App } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
-import type { Firestore } from 'firebase-admin/firestore'
+import { Firestore, getFirestore } from 'firebase-admin/firestore'
+import { cloudAuthClient, firebaseCredential } from './cloud-auth.js'
 import { config } from './config.js'
 
-// Admin SDK with Application Default Credentials. FIRESTORE_EMULATOR_HOST and
-// FIREBASE_AUTH_EMULATOR_HOST are honoured automatically for local runs.
+// Vercel uses short-lived, federated credentials. Local/Cloud Run keep ADC.
 export function adminApp(): App {
-  return getApps()[0] ?? initializeApp({ projectId: config.firebaseProjectId })
+  const existing = getApps()[0]
+  if (existing) return existing
+  const authClient = cloudAuthClient()
+  return initializeApp({
+    projectId: config.firebaseProjectId,
+    ...(authClient ? { credential: firebaseCredential(authClient) } : {}),
+  })
 }
 
 let firestore: Firestore | null = null
 export function db(): Firestore {
   if (!firestore) {
-    firestore = config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)'
+    const authClient = cloudAuthClient()
+    // Firebase's getFirestore() accepts only certificate/ADC credentials.
+    // Its exported Google Cloud client supports an explicit federated client.
+    firestore = authClient ? new Firestore({
+      projectId: config.firebaseProjectId,
+      databaseId: config.firestoreDatabaseId || '(default)',
+      authClient,
+    }) : config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)'
       ? getFirestore(adminApp(), config.firestoreDatabaseId)
       : getFirestore(adminApp())
     firestore.settings({ ignoreUndefinedProperties: true })

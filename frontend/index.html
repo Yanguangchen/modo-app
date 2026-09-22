@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light" data-motion="full" data-surface="glass">
+<html lang="en" data-theme="light" data-motion="full" data-surface="glass" data-font="outfit">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
@@ -55,7 +55,88 @@
     <!-- Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+
+    <!-- Structured Data (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://clarity.workspace/#organization",
+          "name": "Clarity Workspace",
+          "url": "https://clarity.workspace/",
+          "logo": {
+            "@type": "ImageObject",
+            "@id": "https://clarity.workspace/#logo",
+            "url": "https://clarity.workspace/icon-512.png",
+            "contentUrl": "https://clarity.workspace/icon-512.png",
+            "width": 512,
+            "height": 512,
+            "caption": "Clarity Workspace Logo"
+          },
+          "image": "https://clarity.workspace/icon-512.png"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://clarity.workspace/#website",
+          "url": "https://clarity.workspace/",
+          "name": "Clarity Workspace",
+          "description": "Calm structure for workplace requests, plans, focus sessions, communication style preferences, and meetings.",
+          "publisher": {
+            "@id": "https://clarity.workspace/#organization"
+          },
+          "inLanguage": "en-US"
+        },
+        {
+          "@type": ["WebApplication", "SoftwareApplication"],
+          "@id": "https://clarity.workspace/#app",
+          "name": "Clarity Workspace",
+          "alternateName": ["Clarity", "Clarity PWA", "Clarity App"],
+          "url": "https://clarity.workspace/",
+          "description": "Calm structure for workplace requests, plans, focus sessions, communication style preferences, and meetings. Accessible, local-first, and private.",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "All (Web, iOS, Android, macOS, Windows, Linux, ChromeOS)",
+          "browserRequirements": "Requires modern browser with JavaScript and Web Audio support",
+          "softwareVersion": "0.1.0",
+          "installUrl": "https://clarity.workspace/",
+          "isAccessibleForFree": true,
+          "inLanguage": "en-US",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD",
+            "availability": "https://schema.org/InStock"
+          },
+          "author": {
+            "@id": "https://clarity.workspace/#organization"
+          },
+          "publisher": {
+            "@id": "https://clarity.workspace/#organization"
+          },
+          "image": "https://clarity.workspace/og-image.png",
+          "screenshot": [
+            {
+              "@type": "ImageObject",
+              "url": "https://clarity.workspace/og-image.png",
+              "caption": "Clarity Workspace Daily Overview, Focus Mode, and Communication Style",
+              "width": 1200,
+              "height": 630
+            }
+          ],
+          "featureList": [
+            "Request clarification: transform vague requests into explicit deliverables, owners, and dates",
+            "Tactile Pomodoro focus mode with customized audio tones",
+            "Day planning with Kanban board, zoomable timeline, and Gantt charts",
+            "Communication style preferences and team sharing",
+            "Predictable meeting preparation and agenda management",
+            "Local-first client privacy and offline browser persistence"
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

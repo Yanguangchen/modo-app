@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { CSSProperties, FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
 import { GanttView, KanbanView, KindIcon, ZoomTimeline } from '../components/DayViews'
 import type { Column, Item } from '../components/DayViews'
 import { FocusMode } from '../components/FocusMode'
-import { FloatingToolbar, ToolButton, ToolDivider } from '../components/Toolbar'
+import { ToolButton } from '../components/Toolbar'
 import { Disclose, Modal } from '../components/ui'
 import { playAudio } from '../lib/audio'
 import { busyFrom, findSlot } from '../lib/schedule'
 import { useStore } from '../lib/store'
+import { useLocalState } from '../lib/local-state'
 import { addMinutes, formatDuration, fromMinutes, nowMinutes, toMinutes } from '../lib/time'
 import type { Task, TaskState, TodayView } from '../lib/types'
 
@@ -32,10 +34,13 @@ function useTick(ms: number) {
 const workedSeconds = (t: Task) => (t.elapsed ?? 0) + (t.startedAt ? (Date.now() - t.startedAt) / 1000 : 0)
 
 export default function Today() {
-  const { tasks, blocks, prefs, setPrefs, updateTask, notify, setCaptureOpen } = useStore()
+  const { tasks, blocks, prefs, setPrefs, setTasks, updateTask, notify, setCaptureOpen } = useStore()
+  const navigate = useNavigate()
+  const latestTasks = useRef(tasks)
+  latestTasks.current = tasks
   const [pausing, setPausing] = useState<Task | null>(null)
   const [focusing, setFocusing] = useState(false)
-  const [openPanel, setOpenPanel] = useState<OverviewPanel | null>(null)
+  const [openPanel, setOpenPanel] = useLocalState<OverviewPanel | null>('clarity.today.panel', null)
   const dayOpen = openPanel === 'day'
   const trayOpen = openPanel === 'tray'
   const nextOpen = openPanel === 'next'
@@ -63,6 +68,24 @@ export default function Today() {
 
   const tray = tasks.filter(t => !t.start && t.state !== 'completed')
 
+  const changeWithUndo = (changes: { task: Task; patch: Partial<Task> }[], message: string) => {
+    const next = changes.map(({ task, patch }) => ({ ...task, ...patch }))
+    const previous = changes.map(({ task }) => task.state === 'in_progress' ? { ...task, elapsed: Math.round(workedSeconds(task)) } : task)
+    setTasks(current => current.map(task => next.find(t => t.id === task.id) ?? task))
+    notify(message, { label: 'Undo', run: () => {
+      // Do not overwrite edits made after this action.
+      if (!next.every(expected => latestTasks.current.some(task => task.id === expected.id && JSON.stringify(task) === JSON.stringify(expected)))) {
+        notify('This task changed again, so the earlier action cannot be undone.')
+        return
+      }
+      setTasks(current => current.map(task => {
+        const index = next.findIndex(t => t.id === task.id && JSON.stringify(t) === JSON.stringify(task))
+        if (index < 0) return task
+        return previous[index].state === 'in_progress' ? { ...previous[index], startedAt: Date.now() } : previous[index]
+      }))
+    } })
+  }
+
   const placeOnPlan = (t: Task) => {
     const slot = findSlot(busyFrom(tasks, blocks), t.minutes, prefs.bufferMinutes)
     if (slot == null) {
@@ -71,28 +94,24 @@ export default function Today() {
       return
     }
     const start = fromMinutes(slot)
-    updateTask(t.id, { start, state: t.state === 'rescheduled' ? 'returned' : 'planned' })
+    changeWithUndo([{ task: t, patch: { start, state: t.state === 'rescheduled' ? 'returned' : 'planned' } }], `Placed at ${start}`)
     playAudio('tack')
-    notify(`Placed at ${start}`)
   }
 
   const start = (t: Task) => {
     updateTask(t.id, { state: 'in_progress', startedAt: Date.now() })
     playAudio('beep')
-    notify('Started. Focus mode is on.')
-    setFocusing(true)
+    notify('Task started. Enter Focus whenever you’re ready.')
   }
   const pauseQuietly = (t: Task) => updateTask(t.id, { state: 'paused', startedAt: undefined, elapsed: Math.round(workedSeconds(t)) })
   const resumeQuietly = (t: Task) => updateTask(t.id, { state: 'in_progress', startedAt: Date.now() })
   const complete = (t: Task) => {
-    updateTask(t.id, { state: 'completed', startedAt: undefined, elapsed: Math.round(workedSeconds(t)) })
+    changeWithUndo([{ task: t, patch: { state: 'completed', startedAt: undefined, elapsed: Math.round(workedSeconds(t)) } }], 'Marked complete')
     playAudio('complete')
-    notify('Marked complete')
   }
   const reschedule = (t: Task) => {
-    updateTask(t.id, { state: 'rescheduled', start: undefined, startedAt: undefined, elapsed: Math.round(workedSeconds(t)) })
+    changeWithUndo([{ task: t, patch: { state: 'rescheduled', start: undefined, startedAt: undefined, elapsed: Math.round(workedSeconds(t)) } }], 'Moved to unscheduled')
     playAudio('boop')
-    notify('Moved to tray')
   }
 
   const running = now?.state === 'in_progress'
@@ -101,15 +120,15 @@ export default function Today() {
   const moveTask = (t: Task, to: Column) => {
     if (to === 'done') { complete(t); return }
     if (to === 'doing') {
-      tasks.filter(x => x.state === 'in_progress' && x.id !== t.id).forEach(pauseQuietly)
-      resumeQuietly(t)
+      changeWithUndo([
+        ...tasks.filter(x => x.state === 'in_progress' && x.id !== t.id).map(task => ({ task, patch: { state: 'paused' as const, startedAt: undefined, elapsed: Math.round(workedSeconds(task)) } })),
+        { task: t, patch: { state: 'in_progress', startedAt: Date.now() } },
+      ], `Doing: ${t.title}`)
       playAudio('tack')
-      notify(`Doing: ${t.title}`)
       return
     }
-    updateTask(t.id, { state: 'planned', startedAt: undefined, elapsed: Math.round(workedSeconds(t)) })
+    changeWithUndo([{ task: t, patch: { state: 'planned', startedAt: undefined, elapsed: Math.round(workedSeconds(t)) } }], `Back to To do: ${t.title}`)
     playAudio('tack')
-    notify(`Back to To do: ${t.title}`)
   }
 
   const views: { v: TodayView; icon: IconName; label: string }[] = [
@@ -121,8 +140,16 @@ export default function Today() {
   const togglePanel = (panel: OverviewPanel) => setOpenPanel(current => current === panel ? null : panel)
 
   return (
-    <div className="page has-toolbar">
-      <NowCard task={now} />
+    <div className="page">
+      <NowCard task={now}>
+        {now ? <div className="now-actions" role="group" aria-label="Current task actions">
+          <button type="button" className="btn btn-primary" onClick={() => running ? setPausing(now) : start(now)}><Icon name={running ? 'pause' : 'play'} size={18} />{running ? 'Pause' : paused ? 'Resume' : 'Start'}</button>
+          {running && <button type="button" className="btn" onClick={() => setFocusing(true)}><Icon name="focus" size={18} />Focus</button>}
+          <button type="button" className="btn btn-quiet" onClick={() => complete(now)}><Icon name="check" size={18} />Done</button>
+          <button type="button" className="btn btn-quiet" onClick={() => reschedule(now)}><Icon name="reschedule" size={18} />Later</button>
+          <button type="button" className="btn btn-quiet" onClick={() => navigate('/guide', { state: { taskId: now.id } })}><Icon name="sparkle" size={18} />Ask Guide</button>
+        </div> : <button type="button" className="btn btn-primary" onClick={() => tray.length ? setOpenPanel('tray') : setCaptureOpen(true)}>{tray.length ? 'Choose a task' : 'Capture a task'}</button>}
+      </NowCard>
 
       <section
         className={`today-overview glass rise${openPanel ? ` is-open is-${openPanel}` : ''}`}
@@ -207,6 +234,9 @@ export default function Today() {
           <Disclose open={dayOpen} id="day-body">
             <div className="overview-detail day-body" aria-labelledby="day-detail-h">
               <div className="overview-detail-head"><h2 id="day-detail-h">Your day</h2><span>{counts.meetings} meetings · {counts.tasks} tasks</span></div>
+              <div role="radiogroup" aria-label="Day view" className="day-view-controls">
+                {views.map(v => <ToolButton key={v.v} icon={v.icon} label={v.label} short={v.v === 'kanban' ? 'Board' : v.v === 'timeline' ? 'Timeline' : 'Gantt'} role="radio" checked={view === v.v} onClick={() => setPrefs({ todayView: v.v })} />)}
+              </div>
               {dayOpen ? (
                 <div key={view} className="fade">
                   {view === 'kanban' ? <KanbanView tasks={tasks} currentId={now?.id} onMove={moveTask} /> : null}
@@ -218,33 +248,6 @@ export default function Today() {
           </Disclose>
         </div>
       </section>
-
-      <FloatingToolbar label="Today tools">
-        {now && (
-          <>
-            {running ? (
-              <ToolButton icon="pause" label="Pause" primary onClick={() => setPausing(now)} />
-            ) : (
-              <ToolButton icon="play" label={paused ? 'Resume' : 'Start'} primary onClick={() => start(now)} />
-            )}
-            {running && <ToolButton icon="focus" label="Enter focus mode" short="Focus" onClick={() => setFocusing(true)} />}
-            <ToolButton icon="check" label="Mark complete" short="Done" onClick={() => complete(now)} />
-            <ToolButton icon="reschedule" label="Reschedule" short="Later" onClick={() => reschedule(now)} />
-            <ToolDivider />
-          </>
-        )}
-        <ToolButton icon="plus" label="Quick capture" short="Capture" onClick={() => setCaptureOpen(true)} />
-        <ToolButton icon="inbox" label="Place next tray item" short="Place" disabled={!tray.length} onClick={() => tray[0] && placeOnPlan(tray[0])} />
-        <ToolDivider />
-        <ToolButton icon="calendar" label={dayOpen ? 'Hide your day' : 'Show your day'} short="Day" checked={dayOpen} onClick={() => togglePanel('day')} />
-        {dayOpen && (
-          <div role="radiogroup" aria-label="Day view" className="tool-group tool-reveal">
-            {views.map(v => (
-              <ToolButton key={v.v} icon={v.icon} label={v.label} role="radio" checked={view === v.v} onClick={() => setPrefs({ todayView: v.v })} />
-            ))}
-          </div>
-        )}
-      </FloatingToolbar>
 
       <FocusMode
         task={now}
@@ -259,7 +262,7 @@ export default function Today() {
   )
 }
 
-function NowCard({ task }: { task?: Task }) {
+function NowCard({ task, children }: { task?: Task; children: ReactNode }) {
   if (!task) {
     return (
       <section className="glass now-card sticky-now rise" aria-labelledby="now-h">
@@ -267,6 +270,7 @@ function NowCard({ task }: { task?: Task }) {
         <div>
           <div className="now-label" id="now-h">Now</div>
           <p className="now-title">Nothing planned. Take a break or place something from the tray.</p>
+          {children}
         </div>
       </section>
     )
@@ -297,6 +301,7 @@ function NowCard({ task }: { task?: Task }) {
         <Icon name="clock" size={16} />
         <span>{active ? `${left}m left` : formatDuration(task.minutes)}</span>
       </div>
+      {children}
     </section>
   )
 }

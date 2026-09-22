@@ -6,7 +6,7 @@ export const defaultPrefs: Prefs = {
   solidSurfaces: false,
   density: 'comfortable',
   textScale: 1,
-  font: 'system',
+  font: 'outfit',
   todayView: 'kanban',
   bufferMinutes: 10,
   quietStart: '18:30',
