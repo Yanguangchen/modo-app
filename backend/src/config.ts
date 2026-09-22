@@ -67,9 +67,11 @@ export function assertBootable() {
   const problems: string[] = []
   if (config.locks.messageImport) problems.push('ENABLE_MESSAGE_IMPORT must be false for the pilot')
   if (config.locks.transcription) problems.push('ENABLE_TRANSCRIPTION must be false for the pilot')
-  if (!config.region) problems.push('GCP_REGION is required')
-  if (!config.projectId) problems.push('GCP_PROJECT_ID is required')
-  if (!config.geminiApiKey) problems.push('GEMINI_API_KEY is required')
+  if (config.appEnv !== 'local') {
+    if (!config.region) problems.push('GCP_REGION is required')
+    if (!config.projectId) problems.push('GCP_PROJECT_ID is required')
+    if (!config.geminiApiKey) problems.push('GEMINI_API_KEY is required')
+  }
   if (config.guide.webSearch) problems.push('GUIDE_AI_WEB_SEARCH must stay false')
   if (config.guide.allowActions) problems.push('GUIDE_AI_ALLOW_ACTIONS must stay false')
   if (config.appEnv === 'production') {

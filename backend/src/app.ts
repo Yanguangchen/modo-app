@@ -15,12 +15,15 @@ import { publishedArticles } from './knowledge.js'
 import { log } from './log.js'
 import { rateLimit } from './rateLimit.js'
 import { admin } from './routes/admin.js'
+import { calendar } from './routes/calendar.js'
 import { clarifyRoutes } from './routes/clarify.js'
 import { guide, ownFields } from './routes/guide.js'
 import { internal } from './routes/internal.js'
 import { knowledge } from './routes/knowledge.js'
 import { MEETING_SEALED, me } from './routes/me.js'
 import { meetings } from './routes/meetings.js'
+import { notifications } from './routes/notifications.js'
+import { robot } from './routes/robot.js'
 import { tasks } from './routes/tasks.js'
 import { body, scope } from './routes/util.js'
 import { proposals } from './schedule.js'
@@ -55,6 +58,7 @@ export function createApp({ generate, authenticate }: Deps) {
 
   app.get('/healthz', c => c.json({ ok: true }))
   app.route('/internal', internal)
+  app.route('/robot', robot)
 
   const v1 = new Hono<MemberEnv>()
   v1.use('*', bodyLimit({ maxSize: 128 * 1024, onError: () => { throw new ApiError(413, 'too_large', 'That is too long. Shorten it and try again.') } }))
@@ -68,6 +72,8 @@ export function createApp({ generate, authenticate }: Deps) {
 
   v1.route('/me', me)
   v1.route('/tasks', tasks)
+  v1.route('/calendar', calendar)
+  v1.route('/notifications', notifications)
   v1.route('/meetings', meetings)
   v1.route('/guide', guide)
   v1.route('/knowledge', knowledge)
@@ -106,9 +112,11 @@ export function createApp({ generate, authenticate }: Deps) {
   /** One read for the client on sign-in: preferences, tasks, meetings, guide fields. */
   v1.get('/workspace', async c => {
     const { t, u, key } = await scope(c)
-    const [userSnap, taskSnap, meetingSnap, fields] = await Promise.all([
+    const [userSnap, taskSnap, blockSnap, notificationSnap, meetingSnap, fields] = await Promise.all([
       paths.user(t, u).get(),
       paths.userCol(t, u, 'tasks').orderBy('createdAt').limit(500).get(),
+      paths.userCol(t, u, 'calendarBlocks').orderBy('date').orderBy('start').limit(500).get(),
+      paths.userCol(t, u, 'notifications').orderBy('createdAt', 'desc').limit(200).get(),
       paths.userCol(t, u, 'meetings').orderBy('start').limit(200).get(),
       ownFields(t, u, key),
     ])
@@ -119,6 +127,8 @@ export function createApp({ generate, authenticate }: Deps) {
     return c.json({
       preferences: userSnap.data()?.preferences ?? null,
       tasks: taskSnap.docs.map(d => openFields(key, { ...d.data(), id: d.id }, ['title', 'why', 'doneWhen', 'resumeNote', 'source'])),
+      blocks: blockSnap.docs.map(d => openFields(key, { ...d.data(), id: d.id }, ['title'])),
+      notifications: notificationSnap.docs.map(d => openFields(key, { ...d.data(), id: d.id }, ['title', 'message'])),
       meetings: meetingSnap.docs.map(d => ({ ...openMeeting(d.data()), id: d.id })),
       guide: fields,
     })

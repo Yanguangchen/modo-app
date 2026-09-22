@@ -1,6 +1,7 @@
 export type Theme = 'system' | 'light' | 'dark'
 export type MotionPref = 'system' | 'reduced' | 'full'
 export type TodayView = 'kanban' | 'timeline' | 'gantt'
+export type ReminderStyle = 'gentle' | 'direct' | 'minimal'
 
 export interface Prefs {
   theme: Theme
@@ -16,6 +17,13 @@ export interface Prefs {
   summaryFirst: boolean
   soundEnabled: boolean
   soundVolume: number
+  reminderMinutesBefore: number
+  reminderStyle: ReminderStyle
+  inAppToasts: boolean
+  browserPush: boolean
+  gentleChime: boolean
+  focusProtection: boolean
+  muteDuringBreaks: boolean
 }
 
 /** Execution states from spec §9.5 — all user controlled. */
@@ -51,10 +59,26 @@ export type BlockKind = 'meeting' | 'focus' | 'break' | 'buffer'
 export interface CalendarBlock {
   id: string
   title: string
+  date?: string
   start: string
   end: string
   kind: BlockKind
   meetingId?: string
+}
+
+export type NotificationKind = 'reminder' | 'system' | 'decision'
+export type NotificationPriority = 'low' | 'normal' | 'high'
+
+export interface NotificationItem {
+  id: string
+  title: string
+  message: string
+  kind: NotificationKind
+  priority: NotificationPriority
+  createdAt: string
+  read: boolean
+  taskId?: string
+  blockId?: string
 }
 
 export type Audience = 'private' | 'selected' | 'team' | 'organization'

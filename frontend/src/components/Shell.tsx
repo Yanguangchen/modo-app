@@ -11,9 +11,11 @@ import { Modal, PrivateChip, Toasts } from './ui'
 
 export const routes: { path: string; label: string; icon: IconName }[] = [
   { path: '/', label: 'Today', icon: 'today' },
+  { path: '/calendar', label: 'Monthly Calendar', icon: 'calendar' },
   { path: '/clarify', label: 'Clarify', icon: 'clarify' },
   { path: '/meetings', label: 'Meetings', icon: 'meetings' },
   { path: '/guide', label: 'Communication style', icon: 'sparkle' },
+  { path: '/notifications', label: 'Notifications', icon: 'bell' },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ]
 

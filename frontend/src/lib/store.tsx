@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { defaultPrefs, seedBlocks, seedGuide, seedMeetings, seedTasks } from './data'
-import type { CalendarBlock, GuideField, MeetingPlan, Prefs, Task } from './types'
+import { defaultPrefs, seedBlocks, seedGuide, seedMeetings, seedNotifications, seedTasks } from './data'
+import type { CalendarBlock, GuideField, MeetingPlan, NotificationItem, Prefs, Task } from './types'
 import { uid } from './time'
 
 /* Local persistence keeps drafts safe across refreshes (spec §19.2.7).
@@ -12,6 +12,7 @@ export interface Persisted {
   prefs: Prefs
   tasks: Task[]
   blocks: CalendarBlock[]
+  notifications: NotificationItem[]
   guide: GuideField[]
   meetings: MeetingPlan[]
 }
@@ -20,6 +21,7 @@ const seed = (): Persisted => ({
   prefs: defaultPrefs,
   tasks: seedTasks,
   blocks: seedBlocks,
+  notifications: seedNotifications,
   guide: seedGuide,
   meetings: seedMeetings,
 })
@@ -43,6 +45,11 @@ interface Store extends Persisted {
   setTasks: (fn: (t: Task[]) => Task[]) => void
   updateTask: (id: string, patch: Partial<Task>) => void
   addTask: (t: Omit<Task, 'id' | 'state'> & Partial<Pick<Task, 'state'>>) => void
+  addCalendarBlock: (b: Omit<CalendarBlock, 'id'>) => CalendarBlock
+  setBlocks: (fn: (b: CalendarBlock[]) => CalendarBlock[]) => void
+  addNotification: (n: Omit<NotificationItem, 'id' | 'createdAt' | 'read'> & Partial<Pick<NotificationItem, 'read'>>) => NotificationItem
+  markNotificationRead: (id: string) => void
+  clearReadNotifications: () => void
   setGuide: (fn: (g: GuideField[]) => GuideField[]) => void
   updateMeeting: (id: string, patch: Partial<MeetingPlan>) => void
   reset: () => void
@@ -91,6 +98,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setTasks: fn => setState(s => ({ ...s, tasks: fn(s.tasks) })),
     updateTask: (id, patch) => setState(s => ({ ...s, tasks: s.tasks.map(t => (t.id === id ? { ...t, ...patch } : t)) })),
     addTask: t => setState(s => ({ ...s, tasks: [...s.tasks, { state: 'planned', ...t, id: uid() }] })),
+    addCalendarBlock: b => {
+      const block = { ...b, id: uid() }
+      setState(s => ({ ...s, blocks: [...s.blocks, block] }))
+      return block
+    },
+    setBlocks: fn => setState(s => ({ ...s, blocks: fn(s.blocks) })),
+    addNotification: n => {
+      const notification = { ...n, id: uid(), createdAt: new Date().toISOString(), read: n.read ?? false }
+      setState(s => ({ ...s, notifications: [notification, ...s.notifications] }))
+      if (state.prefs.inAppToasts) notify(notification.title)
+      return notification
+    },
+    markNotificationRead: id => setState(s => ({ ...s, notifications: s.notifications.map(n => (n.id === id ? { ...n, read: true } : n)) })),
+    clearReadNotifications: () => setState(s => ({ ...s, notifications: s.notifications.filter(n => !n.read) })),
     setGuide: fn => setState(s => ({ ...s, guide: fn(s.guide) })),
     updateMeeting: (id, patch) => setState(s => ({ ...s, meetings: s.meetings.map(m => (m.id === id ? { ...m, ...patch } : m)) })),
     reset: () => setState(seed()),

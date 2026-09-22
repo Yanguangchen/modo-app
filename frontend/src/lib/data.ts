@@ -1,4 +1,4 @@
-import type { Article, CalendarBlock, GuideField, MeetingPlan, Prefs, Task } from './types'
+import type { Article, CalendarBlock, GuideField, MeetingPlan, NotificationItem, Prefs, Task } from './types'
 
 export const defaultPrefs: Prefs = {
   theme: 'system',
@@ -14,16 +14,37 @@ export const defaultPrefs: Prefs = {
   summaryFirst: true,
   soundEnabled: false,
   soundVolume: 0.7,
+  reminderMinutesBefore: 10,
+  reminderStyle: 'gentle',
+  inAppToasts: true,
+  browserPush: false,
+  gentleChime: true,
+  focusProtection: false,
+  muteDuringBreaks: false,
 }
 
 export const seedBlocks: CalendarBlock[] = [
-  { id: 'b1', title: 'Team check-in', start: '09:30', end: '09:50', kind: 'meeting', meetingId: 'm1' },
-  { id: 'b2', title: 'Transition time', start: '09:50', end: '10:00', kind: 'buffer' },
-  { id: 'b3', title: 'Focus block', start: '10:00', end: '11:30', kind: 'focus' },
-  { id: 'b4', title: 'Q3 planning review', start: '11:30', end: '12:30', kind: 'meeting', meetingId: 'm2' },
-  { id: 'b5', title: 'Lunch break', start: '12:30', end: '13:30', kind: 'break' },
-  { id: 'b6', title: 'Preparation: design critique', start: '14:30', end: '14:50', kind: 'buffer' },
-  { id: 'b7', title: 'Design critique', start: '15:00', end: '15:45', kind: 'meeting', meetingId: 'm3' },
+  { id: 'b1', title: 'Team check-in', date: '2026-09-23', start: '09:30', end: '09:50', kind: 'meeting', meetingId: 'm1' },
+  { id: 'b2', title: 'Transition time', date: '2026-09-23', start: '09:50', end: '10:00', kind: 'buffer' },
+  { id: 'b3', title: 'Focus block', date: '2026-09-23', start: '10:00', end: '11:30', kind: 'focus' },
+  { id: 'b4', title: 'Q3 planning review', date: '2026-09-23', start: '11:30', end: '12:30', kind: 'meeting', meetingId: 'm2' },
+  { id: 'b5', title: 'Lunch break', date: '2026-09-23', start: '12:30', end: '13:30', kind: 'break' },
+  { id: 'b6', title: 'Preparation: design critique', date: '2026-09-23', start: '14:30', end: '14:50', kind: 'buffer' },
+  { id: 'b7', title: 'Design critique', date: '2026-09-23', start: '15:00', end: '15:45', kind: 'meeting', meetingId: 'm3' },
+  { id: 'b8', title: 'Coffee with project notes', date: '2026-09-24', start: '09:00', end: '09:30', kind: 'break' },
+]
+
+export const seedNotifications: NotificationItem[] = [
+  {
+    id: 'n1',
+    title: 'Coffee reminder ready',
+    message: 'Tomorrow at 09:00, Modo can remind you about Coffee with project notes.',
+    kind: 'reminder',
+    priority: 'normal',
+    createdAt: '2026-09-23T09:00:00.000Z',
+    read: false,
+    blockId: 'b8',
+  },
 ]
 
 export const seedTasks: Task[] = [
