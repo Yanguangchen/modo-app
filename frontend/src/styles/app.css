@@ -822,7 +822,7 @@ mark { background: var(--warn-soft); color: inherit; border-radius: 4px; padding
 .guide-composer {
   position: relative;
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--s2);
-  padding: var(--s3) var(--s4) var(--s2);
+  padding: var(--s3) var(--s4);
   border-top: 1px solid var(--glass-border);
   background: color-mix(in srgb, var(--glass-strong) 84%, transparent);
 }

@@ -2,6 +2,8 @@
 
 Status: pilot specification (P0), derived from the product requirements in `README.md`.
 
+Deployment note: this specification describes the original Cloud Run/KMS design. Current production runs the API as a Vercel function and uses `APP_ENCRYPTION_KEY` instead of KMS. For the implemented architecture, local-development safeguards, and the resolved private-data 500 incident, see [production operations](../docs/production-operations.md). Cloud Run, Secret Manager, and KMS references below are not instructions for the current deployment, and configured region values are not proof of deployed data residency.
+
 The backend is the authority for identity, tenancy, permissions, persistence, AI execution, calendar writes, and audit. The web client may hide controls. It must not be the only place a rule is enforced.
 
 ## 1. Pilot scope

@@ -10,6 +10,7 @@
     "postinstall": "node scripts/patch-jwks-esm.mjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc -p .",
+    "check:cloud": "tsx scripts/check-cloud.ts",
     "start": "node dist/server.js",
     "test": "vitest run",
     "seed": "tsx scripts/seed.ts",

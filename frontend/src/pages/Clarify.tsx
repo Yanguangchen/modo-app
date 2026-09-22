@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Aspects } from '../components/Aspects'
 import { Icon } from '../components/Icon'
 import type { IconName } from '../components/Icon'
-import { PrivateChip, Segmented } from '../components/ui'
+import { Segmented } from '../components/ui'
 import { playAudio } from '../lib/audio'
 import { analyse, draftMessage, example, modes } from '../lib/clarify'
 import type { Analysis, Mode, Sourced, Step } from '../lib/clarify'
@@ -156,7 +156,6 @@ export default function Clarify() {
       <div className="page-head">
         <div className="row" style={{ gap: 'var(--s3)' }}>
           <h1>Clarify</h1>
-          <PrivateChip text={DEMO ? 'Local preview' : 'Workspace AI'} />
         </div>
         <div className="row"><ConversationHistory items={history} disabled={working} onSelect={id => {
           const selected = history.find(item => item.id === id)
@@ -172,7 +171,6 @@ export default function Clarify() {
           <div className="chat-empty rise">
             <span className="chat-avatar is-lg" aria-hidden><Icon name="sparkle" size={26} /></span>
             <h2>What would you like to make clearer?</h2>
-            <p className="muted">Paste a message or type a thought. Start with a clear summary, then choose another format if useful.</p>
             <div className="chat-suggest">
               {(['explicit', 'breakdown', 'mindmap'] as Mode[]).map((m, i) => (
                 <button key={m} type="button" className="chat-suggestion glass rise" style={{ '--i': i + 1 } as CSSProperties}
@@ -281,7 +279,6 @@ export default function Clarify() {
             <Icon name="send" size={20} />
           </button>
         </div>
-        <p className="composer-hint">{DEMO ? 'Local preview · processed on this device.' : 'Sending shares this text with Gemini through your workspace service.'} Conversation history stays on this device.</p>
       </form>
     </div>
   )

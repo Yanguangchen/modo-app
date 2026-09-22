@@ -57,6 +57,7 @@ export const config = {
   promptsDir: resolve(root, 'backend', 'prompts'),
   firestoreDatabaseId: str('FIRESTORE_DATABASE_ID', '(default)'),
   kmsKeyName: str('KMS_KEY_NAME'),
+  appEncryptionKey: str('APP_ENCRYPTION_KEY'),
   /** Pilot tenant that invited users join on first sign-in. */
   pilotTenantId: str('PILOT_TENANT_ID', 'pilot'),
   /** Emails always admitted as super-admins (member, admin, knowledge owner). */
@@ -85,7 +86,9 @@ export function assertBootable() {
   if (config.guide.allowActions) problems.push('GUIDE_AI_ALLOW_ACTIONS must stay false')
   if (config.appEnv === 'production') {
     if (config.corsOrigins.some(o => o.startsWith('http://'))) problems.push('CORS_ORIGINS must be https in production')
-    if (!config.kmsKeyName) problems.push('KMS_KEY_NAME is required in production')
+    if (!config.kmsKeyName && !/^[A-Za-z0-9+/]{43}=$/.test(config.appEncryptionKey)) {
+      problems.push('KMS_KEY_NAME or a 32-byte base64 APP_ENCRYPTION_KEY is required in production')
+    }
     if (!config.retention.invoker) problems.push('RETENTION_INVOKER_SERVICE_ACCOUNT is required in production')
     if (!config.apiPublicUrl) problems.push('API_PUBLIC_URL is required in production')
   }

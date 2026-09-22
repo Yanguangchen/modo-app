@@ -21,13 +21,6 @@ const planFields: { key: keyof MeetingPlan; label: string; ask: string }[] = [
   { key: 'prep', label: 'My preparation', ask: '' },
 ]
 
-const prompts = [
-  'Could we clarify what decision needs to be made by the end of this meeting?',
-  'What is the one thing you need from me to keep this moving forward?',
-  'I’d like to take a minute to review what we’ve agreed on before we close.',
-  'Let me follow up with an email on that question by tomorrow morning.',
-]
-
 export default function Meetings() {
   const { meetings } = useStore()
   const [selected, setSelected] = useState(meetings[1]?.id ?? meetings[0]?.id)
@@ -41,7 +34,6 @@ export default function Meetings() {
       <div className="page-head">
         <div>
           <h1>Meetings</h1>
-          <p>Know why you’re there, what’s expected, and what happens after.</p>
         </div>
         <Segmented<Phase>
           label="Meeting phase"
@@ -241,18 +233,8 @@ function Focus({ meeting }: { meeting: MeetingPlan }) {
           <textarea id="pn" rows={6} value={meeting.privateNotes} onChange={e => updateMeeting(meeting.id, { privateNotes: e.target.value })} placeholder="Anything you want to remember…" />
         </section>
         <section className="glass card stack-sm rise" style={{ '--i': 2 } as CSSProperties}>
-          <h3 className="h-sm"><Icon name="sparkle" />Quick prompts</h3>
-          <p className="faint">Phrases you can use or copy.</p>
-          <ul className="stack-sm" style={{ listStyle: 'none', padding: 0 }}>
-            {prompts.map(p => (
-              <li key={p}>
-                <button type="button" className="btn btn-quiet" style={{ width: '100%', justifyContent: 'flex-start', whiteSpace: 'normal', textAlign: 'left' }} onClick={() => navigator.clipboard?.writeText(p).then(() => notify('Prompt copied'), () => notify('Copy was blocked by the browser'))}>
-                  <Icon name="copy" size={16} />{p}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <hr className="divider" />
+          <h3 className="h-sm"><Icon name="hourglass" />Parking lot</h3>
+          <p className="faint">Park an unrelated topic to return to later.</p>
           <form className="row" style={{ flexWrap: 'nowrap' }} onSubmit={(e: FormEvent) => { e.preventDefault(); if (!parking.trim()) return; updateMeeting(meeting.id, { parkingLot: [...meeting.parkingLot, parking.trim()] }); setParking('') }}>
             <label htmlFor="pk" className="visually-hidden">Parking lot</label>
             <input id="pk" type="text" value={parking} onChange={e => setParking(e.target.value)} placeholder="Park an unrelated topic…" />

@@ -4,6 +4,8 @@ Status: Product requirements specification
 
 Working title: **Clarity Workspace**
 
+Production operations: [Vercel/Firebase architecture and resolved private-data 500 incident](docs/production-operations.md). This records the deployed implementation; the product specification below is not a deployment guide.
+
 ## 1. Product summary
 
 Clarity Workspace is a workplace communication, planning, and meeting support application designed for people who benefit from greater structure, explicit language, predictable workflows, and reduced cognitive load.

@@ -11,6 +11,7 @@ describe('config.assertBootable', () => {
     locks: { messageImport: boolean; transcription: boolean }
     guide: { webSearch: boolean; allowActions: boolean }
     kmsKeyName: string
+    appEncryptionKey: string
     apiPublicUrl: string
     retentionInvoker: string
     geminiApiKey: string
@@ -28,6 +29,7 @@ describe('config.assertBootable', () => {
         allowActions: config.guide.allowActions,
       },
       kmsKeyName: config.kmsKeyName,
+      appEncryptionKey: config.appEncryptionKey,
       apiPublicUrl: config.apiPublicUrl,
       retentionInvoker: config.retention.invoker,
       geminiApiKey: config.geminiApiKey,
@@ -44,6 +46,7 @@ describe('config.assertBootable', () => {
     config.guide.webSearch = originalConfig.guide.webSearch
     config.guide.allowActions = originalConfig.guide.allowActions
     config.kmsKeyName = originalConfig.kmsKeyName
+    config.appEncryptionKey = originalConfig.appEncryptionKey
     config.apiPublicUrl = originalConfig.apiPublicUrl
     config.retention.invoker = originalConfig.retentionInvoker
     config.geminiApiKey = originalConfig.geminiApiKey
@@ -102,17 +105,18 @@ describe('config.assertBootable', () => {
     expect(() => assertBootable()).toThrow(/GUIDE_AI_ALLOW_ACTIONS must stay false/)
   })
 
-  it('enforces HTTPS CORS origins, KMS, and retention in production', () => {
+  it('enforces HTTPS CORS origins, key wrapping, and retention in production', () => {
     config.region = 'us-central1'
     config.projectId = 'test-clarity-project'
     config.appEnv = 'production'
     config.corsOrigins = ['http://insecure.example.com', 'https://secure.example.com']
     config.kmsKeyName = ''
+    config.appEncryptionKey = ''
     config.retention.invoker = ''
     config.apiPublicUrl = ''
 
     expect(() => assertBootable()).toThrow(/CORS_ORIGINS must be https in production/)
-    expect(() => assertBootable()).toThrow(/KMS_KEY_NAME is required in production/)
+    expect(() => assertBootable()).toThrow(/KMS_KEY_NAME or a 32-byte base64 APP_ENCRYPTION_KEY is required in production/)
     expect(() => assertBootable()).toThrow(/RETENTION_INVOKER_SERVICE_ACCOUNT is required in production/)
     expect(() => assertBootable()).toThrow(/API_PUBLIC_URL is required in production/)
 
@@ -122,6 +126,11 @@ describe('config.assertBootable', () => {
     config.retention.invoker = 'retention-cron@serviceaccount.com'
     config.apiPublicUrl = 'https://api.clarity.com'
     config.geminiApiKey = 'test-key'
+    expect(() => assertBootable()).not.toThrow()
+
+    // Production may use a server-only wrapping key instead of paid Cloud KMS.
+    config.kmsKeyName = ''
+    config.appEncryptionKey = Buffer.alloc(32, 1).toString('base64')
     expect(() => assertBootable()).not.toThrow()
   })
 })

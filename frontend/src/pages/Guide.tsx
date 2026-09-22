@@ -259,8 +259,6 @@ function GuideChat() {
           <button type="submit" className="composer-send" disabled={!draft.trim() || sending} aria-label="Send message">
             <Icon name="arrowUp" size={19} />
           </button>
-          <span className="composer-hint">Enter to send · Shift + Enter for a new line</span>
-          <span className="composer-hint">{demoMode ? 'Local preview · example replies, no AI request is sent.' : 'Your message, recent conversation, and enabled context are sent to Gemini through your workspace service.'} Conversation history stays on this device.</span>
         </form>
       </section>
 
