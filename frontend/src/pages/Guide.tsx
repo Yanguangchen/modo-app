@@ -40,7 +40,6 @@ const quickPrompts = [
   'What does our guidance say about giving useful feedback?',
 ]
 
-const modelLabel = import.meta.env.VITE_GUIDE_AI_LABEL || 'Gemini 3'
 const demoMode = import.meta.env.VITE_GUIDE_CHAT_DEMO_MODE !== 'false'
 
 function articleCitation(article: Article): ChatCitation {
@@ -174,8 +173,8 @@ function GuideChat() {
           <div className="ai-avatar"><Icon name="sparkle" size={20} /></div>
           <div>
             <strong>Clarity Guide</strong>
-            <span><i className="status-dot" /> Powered by {modelLabel}</span>
           </div>
+          {demoMode ? <div className="preview-badge" style={{ padding: '0 var(--s2)', margin: 0 }}><span /> Local preview mode</div> : null}
           <button
             type="button"
             className="btn btn-quiet btn-sm chat-clear"
@@ -236,8 +235,9 @@ function GuideChat() {
         </form>
       </section>
 
-      <aside className="guide-context stack-sm" aria-label="AI context controls">
-        <section className="glass card-tight stack-sm">
+      {/* Hidden AI context controls */}
+      <aside className="guide-context stack-sm" aria-label="AI context controls" style={{ display: 'none' }}>
+        <section className="glass card-tight stack-sm" style={{ display: 'none' }} aria-hidden="true">
           <div className="context-title">
             <span className="context-icon"><Icon name="guide" size={17} /></span>
             <div><strong>Your context</strong><span>Choose what informs answers</span></div>
@@ -253,13 +253,6 @@ function GuideChat() {
             <span className="switch-track" />
           </label>
         </section>
-
-        <section className="glass card-tight context-note">
-          <Icon name="lock" size={16} />
-          <p><strong>Your choices stay in your control.</strong> The server fetches only the context you enable. Guide AI drafts and explains; it never sends messages or makes workplace decisions.</p>
-        </section>
-
-        {demoMode ? <div className="preview-badge"><span /> Local preview mode</div> : null}
       </aside>
     </div>
   )

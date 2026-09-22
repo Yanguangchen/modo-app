@@ -115,7 +115,7 @@ export function Modal({
 }
 
 export function Toasts() {
-  const { toasts, announcement } = useStore()
+  const { toasts, announcement, dismissToast } = useStore()
   const prevToastCount = useRef(0)
 
   useEffect(() => {
@@ -128,11 +128,13 @@ export function Toasts() {
   return (
     <>
       <div className="visually-hidden" role="status" aria-live="polite">{announcement}</div>
-      <div className="toasts" aria-hidden>
+      <div className="toasts" aria-label="Notifications">
         {toasts.map(t => (
           <div key={t.id} className={`toast glass glass-strong${t.leaving ? ' leaving' : ''}`}>
             <Icon name="check" size={18} />
-            {t.message}
+            <span>{t.message}</span>
+            {t.action && <button type="button" className="btn btn-sm" onClick={() => { dismissToast(t.id); t.action?.run() }}>{t.action.label}</button>}
+            {t.action && <button type="button" className="btn btn-quiet icon-btn btn-sm" aria-label={`Dismiss: ${t.message}`} onClick={() => dismissToast(t.id)}><Icon name="close" size={14} /></button>}
           </div>
         ))}
       </div>

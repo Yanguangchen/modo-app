@@ -131,11 +131,8 @@ describe('guide chat', () => {
 })
 
 describe('auth policy', () => {
-  it('rejects tokens without a second factor when MFA is required', () => {
-    expect(() => callerFromToken({ uid: 'u1', firebase: { sign_in_provider: 'google.com', identities: {} } }, true)).toThrow(/two-step/)
-  })
-  it('accepts MFA tokens and reads claims', () => {
-    const c = callerFromToken({ uid: 'u1', tenant_id: 't1', roles: ['member'], firebase: { sign_in_provider: 'google.com', identities: {}, sign_in_second_factor: 'totp' } }, true)
+  it('accepts Google sign-in tokens without a second factor and reads claims', () => {
+    const c = callerFromToken({ uid: 'u1', tenant_id: 't1', roles: ['member'], firebase: { sign_in_provider: 'google.com', identities: {} } })
     expect(c).toMatchObject({ uid: 'u1', tenantId: 't1', roles: ['member'] })
   })
 })

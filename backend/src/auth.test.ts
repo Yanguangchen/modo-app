@@ -38,16 +38,9 @@ function makeContext(authHeader?: string): {
 }
 
 describe('callerFromToken', () => {
-  it('throws 403 when MFA is required but second factor is absent', () => {
-    expect(() =>
-      callerFromToken({ uid: 'u1', firebase: { sign_in_provider: 'password', identities: {} } }, true),
-    ).toThrow(ApiError)
-  })
-
-  it('allows access when MFA is not required even without second factor', () => {
+  it('allows access without a second factor', () => {
     const caller = callerFromToken(
       { uid: 'u1', email: 'dev@test.local', firebase: { sign_in_provider: 'password', identities: {} } },
-      false,
     )
     expect(caller.uid).toBe('u1')
     expect(caller.email).toBe('dev@test.local')
@@ -60,9 +53,8 @@ describe('callerFromToken', () => {
         uid: 'u2',
         tenant_id: 'tenant-xyz',
         roles: ['admin', 123, null, 'editor'],
-        firebase: { sign_in_provider: 'google.com', identities: {}, sign_in_second_factor: 'totp' },
+        firebase: { sign_in_provider: 'google.com', identities: {} },
       },
-      true,
     )
     expect(caller.roles).toEqual(['admin', 'editor'])
     expect(caller.tenantId).toBe('tenant-xyz')
@@ -73,9 +65,8 @@ describe('callerFromToken', () => {
       {
         uid: 'u3',
         tenant_id: 42 as unknown as string,
-        firebase: { sign_in_provider: 'google.com', identities: {}, sign_in_second_factor: 'totp' },
+        firebase: { sign_in_provider: 'google.com', identities: {} },
       },
-      true,
     )
     expect(caller.tenantId).toBeUndefined()
   })
@@ -120,7 +111,7 @@ describe('requireAuth middleware', () => {
     mockVerifyIdToken.mockResolvedValueOnce({
       uid: 'auth-user-99',
       email: 'user@example.com',
-      firebase: { sign_in_provider: 'google.com', identities: {}, sign_in_second_factor: 'phone' },
+      firebase: { sign_in_provider: 'google.com', identities: {} },
     })
 
     const { ctx, setMap } = makeContext('Bearer valid-id-token')

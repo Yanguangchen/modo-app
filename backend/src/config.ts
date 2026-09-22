@@ -27,9 +27,8 @@ export const config = {
   projectId: str('GCP_PROJECT_ID'),
   region: str('GCP_REGION'),
   firebaseProjectId: str('FIREBASE_PROJECT_ID') || str('GCP_PROJECT_ID'),
-  mfaRequired: bool('MFA_REQUIRED', true),
-  vertexLocation: str('VERTEX_LOCATION', 'global'),
-  vertexModel: str('VERTEX_MODEL', 'gemini-3-flash-preview'),
+  geminiApiKey: str('GEMINI_API_KEY'),
+  geminiModel: str('GEMINI_MODEL', 'gemini-3-flash-preview'),
   aiTimeoutMs: num('AI_REQUEST_TIMEOUT_MS', 8000),
   aiMaxOutputTokens: num('AI_MAX_OUTPUT_TOKENS', 4096),
   guide: {
@@ -70,10 +69,10 @@ export function assertBootable() {
   if (config.locks.transcription) problems.push('ENABLE_TRANSCRIPTION must be false for the pilot')
   if (!config.region) problems.push('GCP_REGION is required')
   if (!config.projectId) problems.push('GCP_PROJECT_ID is required')
+  if (!config.geminiApiKey) problems.push('GEMINI_API_KEY is required')
   if (config.guide.webSearch) problems.push('GUIDE_AI_WEB_SEARCH must stay false')
   if (config.guide.allowActions) problems.push('GUIDE_AI_ALLOW_ACTIONS must stay false')
   if (config.appEnv === 'production') {
-    if (!config.mfaRequired) problems.push('MFA_REQUIRED must be true in production')
     if (config.corsOrigins.some(o => o.startsWith('http://'))) problems.push('CORS_ORIGINS must be https in production')
     if (!config.kmsKeyName) problems.push('KMS_KEY_NAME is required in production')
     if (!config.retention.invoker) problems.push('RETENTION_INVOKER_SERVICE_ACCOUNT is required in production')

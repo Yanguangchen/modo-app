@@ -123,6 +123,6 @@ export async function transform(req: z.infer<typeof TransformRequest>, generate:
   const out = await generate({ system: systemPrompt(), user, schema: ModelOutput, timeoutMs: config.aiTimeoutMs, route: 'transformations' })
   return {
     result: postprocess(req.text, out),
-    meta: { mode, model: config.vertexModel, promptVersion: PROMPT_VERSION, schemaVersion: SCHEMA_VERSION },
+    meta: { mode, model: config.geminiModel, promptVersion: PROMPT_VERSION, schemaVersion: SCHEMA_VERSION },
   }
 }

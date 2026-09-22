@@ -16,11 +16,8 @@ function auth() {
 
 export type Caller = { uid: string; email?: string; emailVerified?: boolean; tenantId?: string; roles: string[] }
 
-/** Pure policy check, separated for tests. */
-export function callerFromToken(token: Pick<DecodedIdToken, 'uid' | 'email' | 'firebase'> & Record<string, unknown>, mfaRequired: boolean): Caller {
-  if (mfaRequired && !token.firebase?.sign_in_second_factor) {
-    throw new ApiError(403, 'mfa_required', 'Finish two-step sign-in, then try again.')
-  }
+/** Reads identity and claims from a verified token. Sign-in is Google only; there is no second factor. */
+export function callerFromToken(token: Pick<DecodedIdToken, 'uid' | 'email' | 'firebase'> & Record<string, unknown>): Caller {
   const roles = Array.isArray(token.roles) ? (token.roles as unknown[]).filter((r): r is string => typeof r === 'string') : []
   return { uid: token.uid, email: token.email, emailVerified: typeof token.email_verified === 'boolean' ? token.email_verified : undefined, tenantId: typeof token.tenant_id === 'string' ? token.tenant_id : undefined, roles }
 }
@@ -36,6 +33,6 @@ export const requireAuth: MiddlewareHandler<{ Variables: { caller: Caller } }> =
   } catch {
     throw new ApiError(401, 'invalid_token', 'Your session has expired. Sign in again.')
   }
-  c.set('caller', callerFromToken(decoded, config.mfaRequired))
+  c.set('caller', callerFromToken(decoded))
   await next()
 }

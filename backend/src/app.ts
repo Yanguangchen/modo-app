@@ -36,7 +36,17 @@ export function createApp({ generate, authenticate }: Deps) {
   const app = new Hono<MemberEnv>()
 
   app.use('*', secureHeaders())
-  app.use('*', cors({ origin: config.corsOrigins, allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'], allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], maxAge: 600 }))
+  app.use('*', cors({
+    origin: origin => {
+      if (config.corsOrigins.includes(origin)) return origin
+      // Vite moves to the next free port when 5173 is taken. Allow that locally.
+      if (config.appEnv !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin
+      return undefined
+    },
+    allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    maxAge: 600,
+  }))
   app.use('*', async (c, next) => {
     const started = Date.now()
     await next()
@@ -119,6 +129,13 @@ export function createApp({ generate, authenticate }: Deps) {
   app.notFound(c => c.json({ code: 'not_found', message: 'Not found.' }, 404))
   app.onError((err, c) => {
     if (err instanceof ApiError) return c.json({ code: err.code, message: err.message }, err.status)
+    // Missing or unauthorized Google Cloud credentials (ADC locally, the service account on Cloud Run).
+    const msg = String((err as { message?: string }).message ?? '')
+    const grpc = (err as { code?: number }).code
+    if (/default credentials|invalid_grant|Could not refresh access token/i.test(msg) || grpc === 7 || grpc === 16) {
+      log('ERROR', 'backend_not_configured', { route: c.req.routePath, code: String(grpc ?? 'adc') })
+      return c.json({ code: 'backend_not_configured', message: 'The server cannot reach the database yet. An admin needs to finish the Google Cloud setup.' }, 503)
+    }
     log('ERROR', 'unhandled', { route: c.req.routePath, code: err.name })
     return c.json({ code: 'internal', message: 'Something went wrong. Your work is safe; try again.' }, 500)
   })

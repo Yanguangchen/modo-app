@@ -36,7 +36,7 @@ function load(): Persisted {
   }
 }
 
-export interface Toast { id: string; message: string; leaving?: boolean }
+export interface Toast { id: string; message: string; leaving?: boolean; action?: { label: string; run: () => void } }
 
 interface Store extends Persisted {
   setPrefs: (p: Partial<Prefs>) => void
@@ -49,7 +49,9 @@ interface Store extends Persisted {
   /** Replace parts of the workspace with data loaded from the account. */
   hydrate: (p: Partial<Persisted>) => void
   toasts: Toast[]
-  notify: (message: string) => void
+  notify: (message: string, action?: Toast['action']) => void
+  dismissToast: (id: string) => void
+  localSaved: boolean
   announcement: string
   captureOpen: boolean
   setCaptureOpen: (open: boolean) => void
@@ -62,21 +64,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const [announcement, setAnnouncement] = useState('')
   const [captureOpen, setCaptureOpen] = useState(false)
+  const [localSaved, setLocalSaved] = useState(true)
   const timers = useRef<number[]>([])
 
   useEffect(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* storage unavailable: keep working in memory */ }
+    try { localStorage.setItem(KEY, JSON.stringify(state)); setLocalSaved(true) } catch { setLocalSaved(false) }
   }, [state])
 
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
-  const notify = useCallback((message: string) => {
+  const notify = useCallback((message: string, action?: Toast['action']) => {
     const id = uid()
-    setToasts(t => [...t.slice(-2), { id, message }])
+    setToasts(t => [...t, { id, message, action }])
     // Re-set so screen readers re-announce identical messages.
     setAnnouncement('')
     requestAnimationFrame(() => setAnnouncement(message))
-    timers.current.push(
+    if (!action) timers.current.push(
       window.setTimeout(() => setToasts(t => t.map(x => (x.id === id ? { ...x, leaving: true } : x))), 3600),
       window.setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 4000),
     )
@@ -94,10 +97,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     hydrate: p => setState(s => ({ ...s, ...p, prefs: p.prefs ? { ...s.prefs, ...p.prefs } : s.prefs })),
     toasts,
     notify,
+    dismissToast: id => setToasts(t => t.filter(x => x.id !== id)),
+    localSaved,
     announcement,
     captureOpen,
     setCaptureOpen,
-  }), [state, toasts, notify, announcement, captureOpen])
+  }), [state, toasts, notify, announcement, captureOpen, localSaved])
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }

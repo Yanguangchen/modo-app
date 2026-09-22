@@ -5,7 +5,7 @@ describe('data seeds and integrity', () => {
   it('provides complete default preferences', () => {
     expect(defaultPrefs.theme).toBe('system')
     expect(defaultPrefs.motion).toBe('system')
-    expect(defaultPrefs.soundEnabled).toBe(true)
+    expect(defaultPrefs.soundEnabled).toBe(false)
     expect(defaultPrefs.soundVolume).toBe(0.7)
     expect(defaultPrefs.bufferMinutes).toBeGreaterThan(0)
   })

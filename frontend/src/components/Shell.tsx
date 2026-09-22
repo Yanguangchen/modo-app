@@ -4,7 +4,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { configureAudio, playAudio } from '../lib/audio'
 import { useStore } from '../lib/store'
 import { SyncStatusChip } from '../lib/sync'
-import { AccountButton, MfaDialog } from './Account'
+import { AccountButton } from './Account'
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
 import { Modal, PrivateChip, Toasts } from './ui'
@@ -13,7 +13,7 @@ export const routes: { path: string; label: string; icon: IconName }[] = [
   { path: '/', label: 'Today', icon: 'today' },
   { path: '/clarify', label: 'Clarify', icon: 'clarify' },
   { path: '/meetings', label: 'Meetings', icon: 'meetings' },
-  { path: '/guide', label: 'Guide AI', icon: 'sparkle' },
+  { path: '/guide', label: 'Communication style', icon: 'sparkle' },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ]
 
@@ -200,7 +200,6 @@ export function Shell({ children }: { children: ReactNode }) {
       </nav>
 
       <QuickCapture />
-      <MfaDialog />
       <Toasts />
     </>
   )

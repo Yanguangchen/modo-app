@@ -43,7 +43,7 @@ type Msg = UserMsg | AiMsg
    editable with its own undo. Nothing leaves the device. */
 export default function Clarify() {
   const { notify } = useStore()
-  const { user, signIn, startEnrollment } = useAuth()
+  const { user, signIn } = useAuth()
   const [thread, setThread] = useState<Msg[]>(() => load<Msg[]>(THREAD_KEY, []).map(m => (m.role === 'assistant' && m.status === 'working' ? { ...m, status: 'error' as const, error: { code: 'interrupted', message: 'This reply was interrupted. Try again.' } } : m)))
   const [draft, setDraft] = useState(() => { try { return localStorage.getItem(DRAFT_KEY) ?? '' } catch { return '' } })
   const [mode, setMode] = useState<Mode>('explicit')
@@ -201,9 +201,6 @@ export default function Clarify() {
                     <div className="row" style={{ gap: 'var(--s2)' }}>
                       {(msg.error?.code === 'unauthenticated' || msg.error?.code === 'invalid_token') && !user && (
                         <button type="button" className="btn btn-primary btn-sm" onClick={() => void signIn()}><Icon name="user" size={16} />Sign in</button>
-                      )}
-                      {msg.error?.code === 'mfa_required' && (
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => void startEnrollment()}><Icon name="lock" size={16} />Set up two-step sign-in</button>
                       )}
                       <button type="button" className="btn btn-sm" onClick={() => void run(msg.id, msg.source, msg.mode, msg.opts, 'ai')}><Icon name="undo" size={16} />Try again</button>
                       <button type="button" className="btn btn-quiet btn-sm" onClick={() => void run(msg.id, msg.source, msg.mode, msg.opts, 'rules')}>Use offline rules</button>

@@ -12,7 +12,7 @@ export const defaultPrefs: Prefs = {
   quietStart: '18:30',
   quietEnd: '08:30',
   summaryFirst: true,
-  soundEnabled: true,
+  soundEnabled: false,
   soundVolume: 0.7,
 }
 

@@ -10,5 +10,5 @@ assertBootable()
 const app = createApp({ generate: generateJson, authenticate: requireAuth })
 
 serve({ fetch: app.fetch, port: config.port }, info => {
-  log('INFO', 'listening', { port: info.port, model: config.vertexModel, mfa: config.mfaRequired })
+  log('INFO', 'listening', { port: info.port, model: config.geminiModel })
 })

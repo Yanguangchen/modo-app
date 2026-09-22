@@ -11,7 +11,7 @@ import type { GuideField, MeetingPlan, Task } from './types'
    matching API call, so every server-side rule (transitions, encryption, audit) applies. */
 
 type Synced = Pick<Persisted, 'prefs' | 'tasks' | 'meetings' | 'guide'>
-export type SyncStatus = 'off' | 'connecting' | 'synced' | 'saving' | 'error' | 'not_invited' | 'mfa'
+export type SyncStatus = 'off' | 'connecting' | 'synced' | 'saving' | 'error' | 'not_invited'
 
 const pick = (s: Persisted): Synced => ({ prefs: s.prefs, tasks: s.tasks, meetings: s.meetings, guide: s.guide })
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
@@ -123,7 +123,7 @@ export function useCloudSync() {
       } catch (e) {
         if (cancelled) return
         const code = e instanceof ApiError ? e.code : ''
-        setStatus(code === 'not_invited' ? 'not_invited' : code === 'mfa_required' ? 'mfa' : 'error')
+        setStatus(code === 'not_invited' ? 'not_invited' : 'error')
         if (code === 'not_invited') store.notify('This account is not invited to the workspace')
       }
     })()
@@ -159,16 +159,15 @@ export function useCloudSync() {
 /** Small top-bar chip: where the workspace is saved right now. */
 export function SyncStatusChip() {
   const { status, retry } = useCloudSync()
-  const { startEnrollment } = useAuth()
   if (status === 'off') return null
   const label = {
     connecting: 'Connecting…', synced: 'Saved to account', saving: 'Saving…', error: 'Not saved — retry',
-    not_invited: 'Not invited', mfa: 'Finish two-step sign-in', off: '',
+    not_invited: 'Not invited', off: '',
   }[status]
-  const act = status === 'error' ? retry : status === 'mfa' ? () => void startEnrollment() : undefined
+  const act = status === 'error' ? retry : undefined
   return (
     <button type="button" className={`sync-chip is-${status}`} onClick={act} disabled={!act} aria-live="polite" data-tip={label}>
-      <Icon name={status === 'error' || status === 'not_invited' ? 'cloudOff' : status === 'mfa' ? 'lock' : 'cloud'} size={16} />
+      <Icon name={status === 'error' || status === 'not_invited' ? 'cloudOff' : 'cloud'} size={16} />
       <span className="sync-label">{label}</span>
     </button>
   )

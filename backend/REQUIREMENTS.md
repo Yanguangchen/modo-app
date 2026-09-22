@@ -30,13 +30,13 @@ Live transcription, Slack or Teams import, autonomous sending, productivity scor
 | Client data access | Firestore security rules deny every client read and write. The API uses the Admin SDK |
 | API auth | `Authorization: Bearer` Firebase ID token. No application session cookie |
 | Calendar | Google Calendar only. Sign-in and calendar consent are separate OAuth steps |
-| Product AI | Vertex AI `gemini-3-flash-preview` (Gemini 3 Flash) on the global endpoint. Structured outputs are schema-validated before they are stored or returned |
+| Product AI | Google AI Studio Gemini API, model `gemini-3-flash-preview`. The key is `GEMINI_API_KEY` on the API only. Structured outputs are schema-validated before they are stored or returned |
 | Guide AI | Cloud Run retrieves only the user-enabled Working Guide context and published organization guidance, then calls Gemini 3 Flash with `backend/prompts/communication-coach.md` |
 | Private content at rest | Google-managed encryption, plus Cloud KMS encryption of private bodies and calendar refresh tokens |
 | Secrets | Google Secret Manager in deployed environments. `.env` is for local runs only |
 | Reminders | Stored quiet-hour rules. The client schedules local reminders. No push vendor |
 | Text storage | Source text stays in Firestore, size-capped. No Cloud Storage bucket |
-| Region | `asia-southeast1` for Cloud Run and Firestore. Gemini 3 Flash is called at Vertex location `global`, the only location that serves `gemini-3-flash-preview` |
+| Region | `asia-southeast1` for Cloud Run and Firestore. Gemini requests go to the Google AI Studio API |
 
 Firebase and Google Cloud use one project. Vercel does not run the API and does not receive service-account credentials.
 
@@ -45,13 +45,13 @@ Firebase and Google Cloud use one project. Vercel does not run the API and does 
 | Service | Responsibility |
 | --- | --- |
 | Vercel | Serves the web client and injects `VITE_` configuration per environment |
-| Firebase Authentication | Google sign-in, MFA, ID tokens, custom claims |
+| Firebase Authentication | Google sign-in, ID tokens, custom claims |
 | Cloud Run API | Preferences, sources, transformations, tasks, time blocks, meetings, guides, export, deletion, approval gates |
 | Firestore | Private, shared, and published documents |
 | Secret Manager | OAuth client secret and other deployed secrets |
 | Cloud KMS | Keys for private bodies and calendar refresh tokens |
 | Google Calendar API | Least-privilege read, approved write, disconnect, idempotency |
-| Vertex AI | Gemini 3 Flash for task and meeting transformations plus the Guide AI chat. Retrieval, citations, schema validation, and safety checks stay on Cloud Run |
+| Google AI Studio | Gemini 3 Flash for task and meeting transformations plus the Guide AI chat. Retrieval, citations, schema validation, and safety checks stay on Cloud Run |
 | Cloud Scheduler | Retention deletes, calling Cloud Run with its own service account |
 | Cloud Logging and Cloud Trace | Availability, latency, failures, and privacy-safe metrics |
 
@@ -73,7 +73,7 @@ Roles:
 
 An employer-paid seat does not grant `admin` or a person’s manager read access to private content. Manager is an audience on a shared field, not a role with broader data access.
 
-When `MFA_REQUIRED=true`, Cloud Run rejects tokens that do not show a completed Firebase multi-factor sign-in. Role changes are written as custom claims by an admin path and take effect on the next token refresh.
+Decision: the pilot uses Google sign-in only, without multi-factor authentication. Role changes are written as custom claims by an admin path and take effect on the next token refresh.
 
 Authorized domains in Firebase Authentication include `localhost`, the Vercel production domain, and the Vercel preview domain used for this project.
 
@@ -300,7 +300,7 @@ Minimum cohort size is 5. Smaller groups are omitted from a metric rather than s
 
 ### 9.1 Product transformations
 
-Cloud Run calls Vertex AI with the runtime service account. There is no model API key in the client or in Vercel. `VERTEX_MODEL` is `gemini-3-flash-preview`. `VERTEX_LOCATION` is `global`, because that model is not served from `asia-southeast1`. Prompts sent to Vertex therefore leave the Singapore region. Firestore and Cloud Run stay in `asia-southeast1`. This split is part of the Personal Data Protection Act review before pilot.
+Cloud Run calls the Gemini API with `GEMINI_API_KEY` from Secret Manager. There is no model API key in the client or in Vercel. `GEMINI_MODEL` is `gemini-3-flash-preview`. Prompts leave the API process for Google AI Studio. Firestore and Cloud Run stay in `asia-southeast1`. This split is part of the Personal Data Protection Act review before pilot.
 
 Each transformation mode has a versioned prompt, a JSON schema, and an evaluation set. Those assets are deployable without an application release.
 
@@ -311,7 +311,7 @@ A successful generation:
 3. Rejects responses that invent an owner, date, or constraint absent from the source. Those fields return as unknown and produce a clarification question.
 4. Stores model id, prompt version, and schema version on the transformation.
 5. Uses `AI_REQUEST_TIMEOUT_MS` as the short-transform budget. The default is eight seconds. The client shows progress as soon as the request starts.
-6. Uses Vertex AI with Google’s no-training default for customer prompts and outputs. The integration must not opt into a training or caching feature that retains prompt content for model improvement.
+6. Uses the Gemini API. The integration must not opt into a training or caching feature that retains prompt content for model improvement.
 
 The model must not be asked to diagnose, infer emotion or potential, score performance, or recommend an employment decision. Safety checks reject those output classes before storage.
 
@@ -346,7 +346,7 @@ Cloud Scheduler runs the retention job daily. Export returns a JSON archive of t
 
 Encryption in transit is HTTPS on Vercel and Cloud Run. Private body fields and the calendar refresh token are encrypted with the Cloud KMS key in `KMS_KEY_NAME` before they are written to Firestore. Firestore and Cloud Run also use Google-managed encryption at rest.
 
-`GCP_REGION=asia-southeast1` places Firestore and Cloud Run in Singapore. Gemini 3 Flash processing uses the Vertex global endpoint. Guide chat messages and retrieved context therefore leave the Singapore region and are in scope for the Personal Data Protection Act review before pilot.
+`GCP_REGION=asia-southeast1` places Firestore and Cloud Run in Singapore. Gemini processing uses the Google AI Studio API. Guide chat messages and retrieved context therefore leave the Singapore region and are in scope for the Personal Data Protection Act review before pilot.
 
 Deployed Cloud Run receives secrets from Secret Manager through the runtime service account. The image does not contain a service-account JSON key. Local development uses Application Default Credentials.
 
@@ -367,7 +367,7 @@ Deployed Cloud Run receives secrets from Secret Manager through the runtime serv
 
 Local names live in `.env.example` at the repository root. Copy it to `.env` for the API and the Vite dev server.
 
-Vercel project settings hold the same public `VITE_` names for Production and Preview, including the Guide AI path, label, and client timeout. Cloud Run holds the private `GUIDE_AI_*`, Vertex, and other API settings; credentials are referenced from Secret Manager and never use the `VITE_` prefix.
+Vercel project settings hold the same public `VITE_` names for Production and Preview, including the Guide AI path, label, and client timeout. Cloud Run holds the private `GUIDE_AI_*`, `GEMINI_API_KEY`, and other API settings; credentials are referenced from Secret Manager and never use the `VITE_` prefix.
 
 The API refuses to boot when `APP_ENV=production` and any required setting is empty, when `ENABLE_MESSAGE_IMPORT` or `ENABLE_TRANSCRIPTION` is true, or when `GCP_REGION` is empty. Variables prefixed with `VITE_` are public in the web bundle. Secrets must not use that prefix.
 
