@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Clarity Workspace does not use Cloud Storage: source text stays in Firestore,
+// size-capped (backend/REQUIREMENTS.md §2). The project's default bucket therefore
+// denies all client access. If uploads are added later, route them through the API
+// or write narrowly scoped, per-owner rules here first.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

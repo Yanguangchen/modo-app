@@ -1,0 +1,13 @@
+{
+  "name": "clarity-workspace-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "test": "npm --prefix frontend test && npm --prefix backend test",
+    "test:e2e": "npm --prefix frontend run test:e2e",
+    "api": "npm --prefix backend run dev",
+    "api:build": "npm --prefix backend run build"
+  }
+}

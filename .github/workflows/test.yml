@@ -1,0 +1,46 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Unit tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+      - name: Test
+        working-directory: frontend
+        run: npm test
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+      - name: Install API
+        working-directory: backend
+        run: npm ci
+      - name: Test API
+        working-directory: backend
+        run: npm test
+      - name: Build API
+        working-directory: backend
+        run: npm run build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: API integration tests (Firestore and Auth emulators)
+        working-directory: backend
+        run: |
+          npm install -g firebase-tools
+          npm run test:int

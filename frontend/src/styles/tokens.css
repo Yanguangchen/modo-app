@@ -1,0 +1,160 @@
+/* ─────────────────────────────────────────────────────────────
+   Design tokens
+   Glass surfaces sit over a soft, slow-moving colour field.
+   Every transition uses an ease-in-out curve so motion starts
+   and ends gently — nothing snaps, nothing overshoots.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* Motion — ease-in-out only */
+  --ease: cubic-bezier(0.65, 0, 0.35, 1);        /* easeInOutCubic */
+  --ease-gentle: cubic-bezier(0.45, 0, 0.55, 1); /* easeInOutQuad  */
+  --ease-sine: cubic-bezier(0.37, 0, 0.63, 1);   /* easeInOutSine  */
+  --dur-1: 180ms;
+  --dur-2: 320ms;
+  --dur-3: 520ms;
+  --dur-ambient: 24s;
+
+  /* Type */
+  --font-system: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-atkinson: "Atkinson Hyperlegible", var(--font-system);
+  --font: var(--font-system);
+  --text-scale: 1;
+  --fs-xs: calc(0.8125rem * var(--text-scale));
+  --fs-sm: calc(0.9375rem * var(--text-scale));
+  --fs-md: calc(1rem * var(--text-scale));
+  --fs-lg: calc(1.25rem * var(--text-scale));
+  --fs-xl: calc(1.625rem * var(--text-scale));
+  --fs-2xl: calc(2.125rem * var(--text-scale));
+  --lh: 1.55;
+
+  /* Space & shape */
+  --space-scale: 1;
+  --s1: calc(4px * var(--space-scale));
+  --s2: calc(8px * var(--space-scale));
+  --s3: calc(12px * var(--space-scale));
+  --s4: calc(16px * var(--space-scale));
+  --s5: calc(24px * var(--space-scale));
+  --s6: calc(32px * var(--space-scale));
+  --s7: calc(48px * var(--space-scale));
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-pill: 999px;
+
+  /* Light palette */
+  --bg: #eef1f6;
+  /* Ambient washes sit close to the page colour. Hue is only a hint. */
+  --blob-1: #d5dced;
+  --blob-2: #d5e6e4;
+  --blob-3: #e6dce4;
+  --blob-4: #e6e2d6;
+
+  --text: #161a2b;
+  --text-muted: #474e66;
+  --text-faint: #5d6480;
+
+  --glass: rgba(255, 255, 255, 0.52);
+  --glass-strong: rgba(255, 255, 255, 0.72);
+  --glass-inset: rgba(255, 255, 255, 0.38);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-edge: rgba(22, 26, 43, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 1px 1px rgba(22, 26, 43, 0.04), 0 10px 30px -8px rgba(49, 46, 129, 0.18);
+  --glass-shadow-lift: 0 2px 2px rgba(22, 26, 43, 0.05), 0 18px 44px -10px rgba(49, 46, 129, 0.28);
+  --blur: 22px;
+  --saturate: 112%;
+
+  --accent: #4338ca;
+  --accent-hover: #3730a3;
+  --accent-soft: rgba(67, 56, 202, 0.12);
+  --on-accent: #ffffff;
+  --focus: #2563eb;
+
+  --ok: #0f766e;
+  --ok-soft: rgba(15, 118, 110, 0.13);
+  --warn: #92400e;
+  --warn-soft: rgba(217, 119, 6, 0.15);
+  --info: #1d4ed8;
+  --info-soft: rgba(29, 78, 216, 0.11);
+  --ai: #6d28d9;
+  --ai-soft: rgba(109, 40, 217, 0.11);
+
+  --kind-meeting: #4338ca;
+  --kind-focus: #0f766e;
+  --kind-break: #b45309;
+  --kind-buffer: #64748b;
+  --kind-task: #be185d;
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0e1118;
+  --blob-1: #1a2030;
+  --blob-2: #162428;
+  --blob-3: #241c24;
+  --blob-4: #222018;
+
+  --text: #eef0fa;
+  --text-muted: #b9bfd6;
+  --text-faint: #9ba2bd;
+
+  --glass: rgba(24, 28, 48, 0.5);
+  --glass-strong: rgba(30, 35, 60, 0.72);
+  --glass-inset: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-edge: rgba(0, 0, 0, 0.3);
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 1px 1px rgba(0, 0, 0, 0.3), 0 12px 34px -10px rgba(0, 0, 0, 0.6);
+  --glass-shadow-lift: 0 2px 2px rgba(0, 0, 0, 0.35), 0 20px 48px -10px rgba(0, 0, 0, 0.7);
+
+  --accent: #a5b4fc;
+  --accent-hover: #c7d2fe;
+  --accent-soft: rgba(165, 180, 252, 0.16);
+  --on-accent: #111433;
+  --focus: #93c5fd;
+
+  --ok: #5eead4;
+  --ok-soft: rgba(94, 234, 212, 0.14);
+  --warn: #fcd34d;
+  --warn-soft: rgba(252, 211, 77, 0.14);
+  --info: #93c5fd;
+  --info-soft: rgba(147, 197, 253, 0.14);
+  --ai: #c4b5fd;
+  --ai-soft: rgba(196, 181, 253, 0.14);
+
+  --kind-meeting: #a5b4fc;
+  --kind-focus: #5eead4;
+  --kind-break: #fcd34d;
+  --kind-buffer: #94a3b8;
+  --kind-task: #f9a8d4;
+
+  color-scheme: dark;
+}
+
+/* Reduce transparency: glass becomes solid, frosted blur is removed */
+:root[data-surface="solid"] {
+  --glass: #ffffff;
+  --glass-strong: #ffffff;
+  --glass-inset: #f3f5fb;
+  --glass-border: #d6dae8;
+  --blur: 0px;
+  --saturate: 100%;
+}
+:root[data-surface="solid"][data-theme="dark"] {
+  --glass: #161a2e;
+  --glass-strong: #1c2139;
+  --glass-inset: #111426;
+  --glass-border: #2c3354;
+}
+
+/* Reduced motion: transitions collapse to near-instant, ambient motion stops */
+:root[data-motion="reduced"] {
+  --dur-1: 1ms;
+  --dur-2: 1ms;
+  --dur-3: 1ms;
+}
+
+:root[data-density="compact"] { --space-scale: 0.75; }
+:root[data-font="atkinson"] { --font: var(--font-atkinson); }

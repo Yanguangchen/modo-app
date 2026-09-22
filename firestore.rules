@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Clarity Workspace Firestore rules.
+//
+// Everyone except the super-admins below is denied direct access. Normal users
+// reach their data only through the Cloud Run API, which uses the Admin SDK
+// (that bypasses these rules) and enforces tenant, owner, audience, and role checks.
+//
+// Super-admins can read and write every document directly with a client SDK.
+// Direct access bypasses the API's encryption, audit trail, and privacy checks,
+// so use it for administration and debugging, not day-to-day work.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSuperAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'yanguangchensp@gmail.com',
+          'quocthaiarct@gmail.com',
+          'vothixuanhoa1011@gmail.com'
+        ];
+      // To also require two-step sign-in, add:
+      //   && request.auth.token.firebase.sign_in_second_factor != null
+    }
+
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
+    }
+  }
+}
